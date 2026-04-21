@@ -1,0 +1,38 @@
+{
+  "name": "vite-plugin-vue-rewrite",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@vue-rewrite/shared": "workspace:*",
+    "@vue/compiler-dom": "^3.5.13",
+    "@vue/compiler-sfc": "^3.5.13",
+    "@babel/parser": "^7.26.5",
+    "ws": "^8.18.0",
+    "http-proxy": "^1.18.1",
+    "unified": "^11.0.5",
+    "remark-gfm": "^4.0.1",
+    "remark-mdx": "^3.1.0",
+    "estree-walker": "^3.0.3"
+  },
+  "devDependencies": {
+    "@types/http-proxy": "^1.17.15",
+    "@types/node": "^22.10.5",
+    "@types/ws": "^8.5.13",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.7",
+    "vitest": "^2.1.8"
+  }
+}

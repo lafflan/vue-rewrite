@@ -1,0 +1,18 @@
+{
+  "name": "vue-rewrite",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "pnpm build:shared && pnpm build:overlay && pnpm build:plugin",
+    "build:shared": "pnpm --filter @vue-rewrite/shared build",
+    "build:overlay": "pnpm --filter @vue-rewrite/overlay build",
+    "build:plugin": "pnpm --filter vite-plugin-vue-rewrite build",
+    "dev": "pnpm build:overlay && pnpm --filter vite-plugin-vue-rewrite dev",
+    "typecheck": "pnpm build:shared && pnpm --filter @vue-rewrite/shared exec tsc --noEmit && pnpm --filter vite-plugin-vue-rewrite exec tsc --noEmit && pnpm --filter @vue-rewrite/overlay exec vue-tsc --noEmit",
+    "test": "pnpm --filter vite-plugin-vue-rewrite test && pnpm --filter @vue-rewrite/overlay test"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
