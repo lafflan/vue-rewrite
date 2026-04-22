@@ -64,6 +64,33 @@ const globalStyles = `
     line-height: 1.5;
     color: ${COLORS.text};
   }
+
+  /* Layout containers - must be fixed position in global styles */
+  .vr-overlay .tools-panel,
+  [id="vue-rewrite-root"] .tools-panel {
+    position: fixed !important;
+    left: 16px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    z-index: 999999 !important;
+  }
+
+  .vr-overlay .toolbar,
+  [id="vue-rewrite-root"] .toolbar {
+    position: fixed !important;
+    bottom: 16px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    z-index: 999999 !important;
+  }
+
+  .vr-overlay .property-sidebar,
+  [id="vue-rewrite-root"] .property-sidebar {
+    position: fixed !important;
+    right: 16px !important;
+    top: 16px !important;
+    z-index: 999999 !important;
+  }
 `;
 
 // Initialize overlay
@@ -117,3 +144,42 @@ function mountApp(shadow: ShadowRoot, wsPort: number) {
 init();
 
 export { bridge };
+
+// TEMPORARY: Inject data-vr-id into DOM elements for testing
+function injectVrIds() {
+  let counter = 0;
+  function addVrId(el: Element) {
+    if (!el.hasAttribute('data-vr-id')) {
+      el.setAttribute('data-vr-id', `vr-${Date.now().toString(36)}-${(counter++).toString(36)}`);
+    }
+  }
+
+  function processElement(el: Element) {
+    if (el.tagName === 'TEMPLATE' || el.tagName === 'SCRIPT' || el.tagName === 'STYLE') return;
+    if (el.hasAttribute('data-vr-id')) return;
+    addVrId(el);
+    for (const child of el.children) {
+      processElement(child);
+    }
+  }
+
+  // Process all elements in document
+  processElement(document.body);
+
+  // Watch for new elements
+  const observer = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      for (const node of mutation.addedNodes) {
+        if (node instanceof Element) {
+          processElement(node);
+        }
+      }
+    }
+  });
+
+  observer.observe(document.body, { childList: true, subtree: true });
+  console.log('[VueRewrite] VrId injection started');
+}
+
+// Start after a short delay to let Vue mount
+setTimeout(injectVrIds, 500);

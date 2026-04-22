@@ -47,6 +47,8 @@ export default function vueRewritePlugin(options: VueRewriteOptions = {}): Plugi
 
   return {
     name: 'vite-plugin-vue-rewrite',
+    // Remove enforce: 'pre' - let vue plugin handle .vue first, then we transform the result
+    // enforce: 'pre',
 
     async configureServer(devServer) {
       if (!enabled) return;
@@ -142,15 +144,20 @@ export default function vueRewritePlugin(options: VueRewriteOptions = {}): Plugi
       if (!enabled) return code;
       if (!id.endsWith('.vue')) return code;
 
+      logger.debug(`[Transform] Processing: ${id}`);
       try {
         // 使用 SFC 解析器进行转换，注入 data-vr-id
         const result = transformSFC(code, id);
         if (result.errors.length > 0) {
-          logger.debug(`Transform warnings for ${id}:`, result.errors);
+          logger.debug(`[Transform] Errors for ${id}:`, result.errors);
+        }
+        // Check if data-vr-id was actually added
+        if (!result.code.includes('data-vr-id')) {
+          logger.debug(`[Transform] WARNING: No data-vr-id in result for ${id}`);
         }
         return result.code;
       } catch (err) {
-        logger.debug(`Failed to transform ${id}:`, err);
+        logger.debug(`[Transform] Failed to transform ${id}:`, err);
         return code;
       }
     },

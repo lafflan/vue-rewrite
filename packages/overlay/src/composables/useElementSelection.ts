@@ -17,8 +17,19 @@ function findVrElement(target: EventTarget | null): Element | null {
 /** 检查点击是否发生在 overlay 容器内部（不应触发选择） */
 function isInsideOverlay(target: EventTarget | null): boolean {
   if (!target || !(target instanceof Node)) return false;
+
+  // 检查是否在 vue-rewrite-root 元素本身
   const root = document.getElementById('vue-rewrite-root');
-  return root ? root.contains(target as Node) : false;
+  if (root === target || root?.contains(target as Node)) return true;
+
+  // 检查是否在 shadow root 内部
+  let el: Element | null = target as Element;
+  while (el) {
+    if (el.shadowRoot) return true;
+    el = el.parentElement;
+  }
+
+  return false;
 }
 
 /** 从 DOM 元素构建 ComponentInfo */
