@@ -1,4 +1,5 @@
 <script setup lang="ts">
+
 interface Props {
   title: string;
   variant?: 'default' | 'elevated';
@@ -12,18 +13,11 @@ const variantClasses: Record<string, string> = {
   default: 'border border-gray-200',
   elevated: 'shadow-xl',
 };
-</script>
 
+</script>
 <template>
-  <div
-    :class="[
+<div :class="[
       'bg-white rounded-2xl p-6 transition-shadow duration-300',
       variantClasses[props.variant],
-    ]"
-  >
-    <h3 class="text-xl font-semibold text-gray-900 mb-3">{{ title }}</h3>
-    <div class="text-gray-600">
-      <slot />
-    </div>
-  </div>
+    ]" data-vr-id="vr-mo9tgst8-1y"><h3 class="text-xl font-semibold text-gray-900 mb-3" data-vr-id="vr-mo9tgst8-1z">[object Object]</h3><div class="text-gray-600" data-vr-id="vr-mo9tgst8-20"><slot data-vr-id="vr-mo9tgst8-21"></slot></div></div>
 </template>

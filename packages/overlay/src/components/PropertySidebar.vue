@@ -148,10 +148,11 @@ if (savedWidth) {
   bottom: 80px;
   display: flex;
   flex-direction: column;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 10px 20px -5px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.03);
   overflow: hidden;
+  backdrop-filter: blur(8px);
 }
 
 .resize-handle {
@@ -159,105 +160,131 @@ if (savedWidth) {
   left: 0;
   top: 0;
   bottom: 0;
-  width: 4px;
+  width: 5px;
   cursor: ew-resize;
   background: transparent;
-  transition: background 150ms;
+  transition: background 200ms ease;
+  z-index: 10;
 }
 
 .resize-handle:hover {
-  background: #3b82f6;
+  background: linear-gradient(90deg, rgba(59, 130, 246, 0.3), transparent);
 }
 
 .sidebar-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
-  border-bottom: 1px solid #e2e8f0;
+  padding: 14px 16px;
+  border-bottom: 1px solid #f1f5f9;
+  background: linear-gradient(180deg, #fafbfc, #ffffff);
 }
 
 .sidebar-header h3 {
   margin: 0;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: #0f172a;
+  letter-spacing: -0.01em;
 }
 
 .close-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   padding: 0;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   background: transparent;
   color: #64748b;
   cursor: pointer;
+  transition: all 150ms ease;
 }
 
 .close-btn:hover {
-  background: #f1f5f9;
-  color: #0f172a;
+  background: #fee2e2;
+  color: #ef4444;
 }
 
 .component-info {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   padding: 12px 16px;
   background: #f8fafc;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid #f1f5f9;
 }
 
 .component-name {
   font-weight: 600;
-  font-size: 13px;
+  font-size: 12px;
   color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.component-name::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  background: #22c55e;
+  border-radius: 50%;
 }
 
 .component-path {
-  font-size: 11px;
-  color: #64748b;
-  font-family: monospace;
+  font-size: 10px;
+  color: #94a3b8;
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+  padding: 3px 6px;
+  background: #f1f5f9;
+  border-radius: 4px;
+  display: inline-block;
 }
 
 .class-editor {
-  padding: 10px 14px;
-  border-bottom: 1px solid #e2e8f0;
+  padding: 12px 14px;
+  border-bottom: 1px solid #f1f5f9;
+  background: #fafbfc;
 }
 
 .class-editor-header {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #64748b;
-  margin-bottom: 8px;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+  margin-bottom: 10px;
 }
 
 .class-tokens {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  margin-bottom: 8px;
-  min-height: 24px;
+  gap: 5px;
+  margin-bottom: 10px;
+  min-height: 26px;
 }
 
 .class-token {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  background: #eff6ff;
+  gap: 4px;
+  background: linear-gradient(135deg, #eff6ff, #dbeafe);
   border: 1px solid #bfdbfe;
-  border-radius: 4px;
-  padding: 1px 6px;
+  border-radius: 6px;
+  padding: 3px 8px;
   font-size: 11px;
-  font-family: monospace;
-  color: #1d4ed8;
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+  color: #2563eb;
   max-width: 100%;
+  transition: all 150ms ease;
+}
+
+.class-token:hover {
+  background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+  transform: translateY(-1px);
 }
 
 .remove-class {
@@ -270,6 +297,7 @@ if (savedWidth) {
   color: #93c5fd;
   line-height: 1;
   flex-shrink: 0;
+  transition: color 150ms ease;
 }
 
 .remove-class:hover {
@@ -278,52 +306,75 @@ if (savedWidth) {
 
 .no-classes {
   font-size: 11px;
-  color: #94a3b8;
+  color: #cbd5e1;
   font-style: italic;
 }
 
 .class-input-row {
   display: flex;
-  gap: 4px;
+  gap: 6px;
 }
 
 .class-input {
   flex: 1;
   border: 1px solid #e2e8f0;
-  border-radius: 4px;
-  padding: 4px 8px;
+  border-radius: 6px;
+  padding: 7px 10px;
   font-size: 12px;
-  font-family: monospace;
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
   outline: none;
   color: #0f172a;
+  background: white;
+  transition: all 150ms ease;
 }
 
 .class-input:focus {
   border-color: #3b82f6;
-  box-shadow: 0 0 0 2px #bfdbfe;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .add-class-btn {
-  padding: 4px 8px;
+  padding: 7px 12px;
   border: 1px solid #e2e8f0;
-  border-radius: 4px;
-  background: #f8fafc;
+  border-radius: 6px;
+  background: white;
   font-size: 14px;
+  font-weight: 500;
   color: #64748b;
   cursor: pointer;
   line-height: 1;
+  transition: all 150ms ease;
 }
 
 .add-class-btn:hover {
-  background: #3b82f6;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
   color: white;
   border-color: #3b82f6;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
 }
 
 .property-sections {
   flex: 1;
   overflow-y: auto;
-  padding: 8px 0;
+  padding: 4px 0;
+}
+
+.property-sections::-webkit-scrollbar {
+  width: 6px;
+}
+
+.property-sections::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.property-sections::-webkit-scrollbar-thumb {
+  background: #e2e8f0;
+  border-radius: 3px;
+}
+
+.property-sections::-webkit-scrollbar-thumb:hover {
+  background: #cbd5e1;
 }
 
 .saving-indicator {
@@ -331,22 +382,23 @@ if (savedWidth) {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 8px;
-  background: #fef3c7;
+  padding: 10px;
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
   color: #92400e;
-  font-size: 12px;
+  font-size: 11px;
+  font-weight: 500;
 }
 
 .saving-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: currentColor;
+  background: #f59e0b;
   animation: pulse 1s infinite;
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.9); }
 }
 </style>

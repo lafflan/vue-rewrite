@@ -2,7 +2,7 @@ import type { Plugin } from 'vite';
 import type { ServerMessage } from '@vue-rewrite/shared';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { join as pathJoin } from 'path';
-import { existsSync, readFileSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { logger } from './utils/logger.js';
 import { injectOverlayScript } from './transform/inject.js';
 import { tailwindResolver } from './transform/tailwindResolver.js';
@@ -47,8 +47,7 @@ export default function vueRewritePlugin(options: VueRewriteOptions = {}): Plugi
 
   return {
     name: 'vite-plugin-vue-rewrite',
-    // Remove enforce: 'pre' - let vue plugin handle .vue first, then we transform the result
-    // enforce: 'pre',
+    enforce: 'pre', // 必须在 Vue plugin 之前运行，才能收到原始 SFC
 
     async configureServer(devServer) {
       if (!enabled) return;
@@ -154,6 +153,10 @@ export default function vueRewritePlugin(options: VueRewriteOptions = {}): Plugi
         // Check if data-vr-id was actually added
         if (!result.code.includes('data-vr-id')) {
           logger.debug(`[Transform] WARNING: No data-vr-id in result for ${id}`);
+        }
+        // 将转换后的代码写回源文件，这样后续 applySfcEdit 可以找到 data-vr-id
+        if (result.code !== code && existsSync(id)) {
+          writeFileSync(id, result.code, 'utf-8');
         }
         return result.code;
       } catch (err) {

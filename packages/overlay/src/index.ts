@@ -145,7 +145,8 @@ init();
 
 export { bridge };
 
-// TEMPORARY: Inject data-vr-id into DOM elements for testing
+// Inject data-vr-id into DOM elements for element selection
+// This is a fallback when SFC transformer isn't active
 function injectVrIds() {
   let counter = 0;
   function addVrId(el: Element) {
@@ -163,10 +164,8 @@ function injectVrIds() {
     }
   }
 
-  // Process all elements in document
   processElement(document.body);
 
-  // Watch for new elements
   const observer = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
       for (const node of mutation.addedNodes) {
@@ -181,5 +180,4 @@ function injectVrIds() {
   console.log('[VueRewrite] VrId injection started');
 }
 
-// Start after a short delay to let Vue mount
 setTimeout(injectVrIds, 500);

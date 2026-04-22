@@ -256,6 +256,11 @@ function onBorderWidthChange(value: string) {
 <style scoped>
 .property-section {
   border-bottom: 1px solid #f1f5f9;
+  transition: background 150ms ease;
+}
+
+.property-section:hover {
+  background: rgba(59, 130, 246, 0.02);
 }
 
 .section-header {
@@ -263,28 +268,42 @@ function onBorderWidthChange(value: string) {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 8px 16px;
+  padding: 10px 16px;
   border: none;
   background: transparent;
   cursor: pointer;
   text-align: left;
+  border-radius: 6px;
+  margin: 2px 4px;
+  transition: all 150ms ease;
 }
 
 .section-header:hover {
-  background: #f8fafc;
+  background: rgba(59, 130, 246, 0.08);
 }
 
 .section-title {
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
   color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.section-title::before {
+  content: '';
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #94a3b8;
 }
 
 .expand-icon {
   color: #94a3b8;
-  transition: transform 150ms;
+  transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .expand-icon.rotated {
@@ -292,14 +311,14 @@ function onBorderWidthChange(value: string) {
 }
 
 .section-content {
-  padding: 8px 16px 16px;
+  padding: 4px 16px 16px;
 }
 
 .property-row {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin-bottom: 12px;
+  gap: 6px;
+  margin-bottom: 14px;
 }
 
 .property-row:last-child {
@@ -307,7 +326,9 @@ function onBorderWidthChange(value: string) {
 }
 
 .property-row label {
-  font-size: 12px;
-  color: #475569;
+  font-size: 11px;
+  font-weight: 500;
+  color: #64748b;
+  letter-spacing: 0.01em;
 }
 </style>

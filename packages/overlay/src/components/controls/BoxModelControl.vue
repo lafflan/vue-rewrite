@@ -105,7 +105,7 @@ function toggleLink() {
 <style scoped>
 .box-model-control {
   display: flex;
-  gap: 12px;
+  gap: 16px;
   align-items: center;
 }
 
@@ -114,7 +114,7 @@ function toggleLink() {
   grid-template-columns: auto auto auto;
   grid-template-rows: auto auto auto;
   gap: 4px;
-  width: 120px;
+  width: 130px;
 }
 
 .box-model-top {
@@ -146,40 +146,49 @@ function toggleLink() {
 }
 
 input[type="number"] {
-  width: 36px;
-  padding: 4px;
+  width: 38px;
+  padding: 5px 4px;
   border: 1px solid #e2e8f0;
-  border-radius: 4px;
+  border-radius: 6px;
   font-size: 11px;
   text-align: center;
+  font-family: 'SF Mono', Monaco, monospace;
+  background: #f8fafc;
+  color: #0f172a;
+  transition: all 150ms ease;
 }
 
 input[type="number"]:focus {
   outline: none;
   border-color: #3b82f6;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .link-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   padding: 0;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   background: #f1f5f9;
   color: #64748b;
   cursor: pointer;
+  transition: all 150ms ease;
 }
 
 .link-btn:hover {
   background: #e2e8f0;
+  color: #0f172a;
 }
 
 .link-btn.active {
-  background: #3b82f6;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
   color: white;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
 }
 
 .box-model-preview {
@@ -187,17 +196,20 @@ input[type="number"]:focus {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 48px;
+  height: 52px;
 }
 
 .preview-box {
   background: #f1f5f9;
-  border: 1px dashed #cbd5e1;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  transition: all 150ms ease;
 }
 
 .preview-margin {
-  background: #fef3c7;
-  height: 24px;
-  border: 1px dashed #f59e0b;
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  height: 26px;
+  border: 1px solid #f59e0b;
+  border-radius: 3px;
 }
 </style>

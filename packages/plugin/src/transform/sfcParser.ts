@@ -9,11 +9,14 @@ function generateVrId(): string {
 
 /**
  * 将 attrs 对象转换为字符串
+ * 排除已作为标签名一部分的布尔属性（如 script 的 setup）
  */
-function attrsToString(attrs: Record<string, string | true>): string {
+function attrsToString(attrs: Record<string, string | true>, excludeKeys: string[] = []): string {
   if (!attrs || Object.keys(attrs).length === 0) return '';
   const parts: string[] = [];
   for (const [key, value] of Object.entries(attrs)) {
+    // 跳过已排除的布尔属性（如 setup, scoped）
+    if (excludeKeys.includes(key)) continue;
     if (value === true) {
       parts.push(key);
     } else {
@@ -35,6 +38,11 @@ interface TransformResult {
  */
 export function transformSFC(code: string, id: string): TransformResult {
   const errors: string[] = [];
+
+  // 如果已有 data-vr-id，说明已被处理过，跳过避免重复
+  if (code.includes('data-vr-id=')) {
+    return { code, sourceMap: '', errors: [] };
+  }
 
   // 解析 SFC
   const { descriptor, errors: parseErrors } = parseSFC(code, {
@@ -61,13 +69,13 @@ export function transformSFC(code: string, id: string): TransformResult {
 
   // 处理 script 标签
   if (descriptor.script) {
-    const attrsStr = attrsToString(descriptor.script.attrs);
+    const attrsStr = attrsToString(descriptor.script.attrs, ['setup']);
     result += `<script${attrsStr}>\n${descriptor.script.content}\n</script>\n`;
   }
 
   // 处理 scriptSetup
   if (descriptor.scriptSetup) {
-    const attrsStr = attrsToString(descriptor.scriptSetup.attrs);
+    const attrsStr = attrsToString(descriptor.scriptSetup.attrs, ['setup']);
     result += `<script setup${attrsStr}>\n${descriptor.scriptSetup.content}\n</script>\n`;
   }
 
@@ -77,7 +85,7 @@ export function transformSFC(code: string, id: string): TransformResult {
   // 处理 style 标签
   if (descriptor.styles.length > 0) {
     for (const style of descriptor.styles) {
-      const attrsStr = attrsToString(style.attrs);
+      const attrsStr = attrsToString(style.attrs, ['scoped']);
       result += `<style${attrsStr}>\n${style.content}\n</style>\n`;
     }
   }
@@ -91,13 +99,19 @@ export function transformSFC(code: string, id: string): TransformResult {
 function processTemplate(template: string, errors: string[]): string {
   try {
     // 使用 compiler-dom 的 parse 解析 template
+    // parseTemplate 需要一个根元素，所以我们用 <template> 包裹
     const ast = parseTemplate(`<template>${template}</template>`);
 
     if (!ast.children || ast.children.length === 0) {
       return template;
     }
 
-    const processedNodes = processNodes(ast.children, errors);
+    // ast.children[0] 是我们包裹的 <template> 标签
+    // 但它的 children 才是真正的内容
+    // 由于 TypeScript 类型系统不知道这个结构，用类型断言
+    const wrapperElement = ast.children[0] as ElementNode;
+    const contentNodes = (wrapperElement as any).children || ast.children;
+    const processedNodes = processNodes(contentNodes, errors);
 
     // 将处理后的节点转回字符串
     return nodesToString(processedNodes);
@@ -323,7 +337,10 @@ export function applySfcEdit(
 
     // 解析 template AST（需要先包装一层）
     const ast = parseTemplate(`<template>${descriptor.template.content}</template>`);
-    const el = findElementByVrId(ast.children, vrId);
+    // parseTemplate 返回的 ast.children 是根节点列表，需要跳过包装层
+    const wrapperElement = ast.children[0] as ElementNode;
+    const templateContent = (wrapperElement as any).children || ast.children;
+    const el = findElementByVrId(templateContent, vrId);
 
     if (!el) {
       return { code: source, success: false, error: `Element with data-vr-id="${vrId}" not found` };
@@ -395,18 +412,18 @@ function rebuildSfc(
   let result = '';
 
   if (descriptor.script) {
-    const attrsStr = attrsToString(descriptor.script.attrs);
+    const attrsStr = attrsToString(descriptor.script.attrs, ['setup']);
     result += `<script${attrsStr}>\n${descriptor.script.content}\n</script>\n`;
   }
   if (descriptor.scriptSetup) {
-    const attrsStr = attrsToString(descriptor.scriptSetup.attrs);
+    const attrsStr = attrsToString(descriptor.scriptSetup.attrs, ['setup']);
     result += `<script setup${attrsStr}>\n${descriptor.scriptSetup.content}\n</script>\n`;
   }
 
   result += `<template>\n${editedTemplateContent}\n</template>\n`;
 
   for (const style of descriptor.styles) {
-    const attrsStr = attrsToString(style.attrs);
+    const attrsStr = attrsToString(style.attrs, ['scoped']);
     result += `<style${attrsStr}>\n${style.content}\n</style>\n`;
   }
 
@@ -444,6 +461,12 @@ function parseTemplateContent(content: string) {
   return parseTemplate(`<template>${content}</template>`);
 }
 
+function getTemplateContentNodes(ast: ReturnType<typeof parseTemplate>) {
+  // parseTemplate 返回的 ast.children 是根节点列表，需要跳过包装层 <template>
+  const wrapperElement = ast.children[0] as ElementNode;
+  return (wrapperElement as any).children || ast.children;
+}
+
 /**
  * 对 SFC 应用重排序
  */
@@ -459,9 +482,9 @@ export function applySfcReorder(
     if (!descriptor.template) return { code: source, success: false, error: 'No template' };
 
     const ast = parseTemplateContent(descriptor.template.content);
-    const found = findParentOf(ast.children, vrId, ast);
+    const contentNodes = getTemplateContentNodes(ast);
+    const found = findParentOf(contentNodes, vrId, ast);
     if (!found) return { code: source, success: false, error: `Element not found: ${vrId}` };
-
     const { parent, index } = found;
     const children = parent.children || [];
     if (fromIndex < 0 || fromIndex >= children.length) {
@@ -474,7 +497,7 @@ export function applySfcReorder(
     const [moved] = children.splice(fromIndex, 1);
     children.splice(toIndex, 0, moved);
 
-    const editedContent = nodesToString(ast.children || []);
+    const editedContent = nodesToString(contentNodes);
     const modified = rebuildSfc(descriptor, editedContent);
     return { code: modified, success: true };
   } catch (err) {
@@ -495,13 +518,13 @@ export function applySfcDelete(
     if (!descriptor.template) return { code: source, success: false, error: 'No template' };
 
     const ast = parseTemplateContent(descriptor.template.content);
-    const found = findParentOf(ast.children, vrId, ast);
+    const contentNodes = getTemplateContentNodes(ast);
+    const found = findParentOf(contentNodes, vrId, ast);
     if (!found) return { code: source, success: false, error: `Element not found: ${vrId}` };
-
     const { parent, index } = found;
     parent.children?.splice(index, 1);
 
-    const editedContent = nodesToString(ast.children || []);
+    const editedContent = nodesToString(contentNodes);
     const modified = rebuildSfc(descriptor, editedContent);
     return { code: modified, success: true };
   } catch (err) {
@@ -523,9 +546,9 @@ export function applySfcDuplicate(
     if (!descriptor.template) return { code: source, success: false, error: 'No template' };
 
     const ast = parseTemplateContent(descriptor.template.content);
-    const found = findParentOf(ast.children, vrId, ast);
+    const contentNodes = getTemplateContentNodes(ast);
+    const found = findParentOf(contentNodes, vrId, ast);
     if (!found) return { code: source, success: false, error: `Element not found: ${vrId}` };
-
     const { parent, index } = found;
     const original = parent.children?.[index];
     if (!original || original.type !== 1) return { code: source, success: false, error: 'Can only duplicate element nodes' };
@@ -541,7 +564,7 @@ export function applySfcDuplicate(
 
     parent.children?.splice(index + 1, 0, clone);
 
-    const editedContent = nodesToString(ast.children || []);
+    const editedContent = nodesToString(contentNodes);
     const modified = rebuildSfc(descriptor, editedContent);
     return { code: modified, success: true };
   } catch (err) {
@@ -564,7 +587,8 @@ export function applySfcClassBinding(
     if (!descriptor.template) return { code: source, success: false, error: 'No template' };
 
     const ast = parseTemplateContent(descriptor.template.content);
-    const found = findParentOf(ast.children, vrId, ast);
+    const contentNodes = getTemplateContentNodes(ast);
+    const found = findParentOf(contentNodes, vrId, ast);
     if (!found) return { code: source, success: false, error: `Element not found: ${vrId}` };
 
     const el = found.parent.children?.[found.index] as ElementNode & { dataVrId?: string };
@@ -590,7 +614,7 @@ export function applySfcClassBinding(
       el.props?.push({ type: 7, name: 'bind', arg, exp, loc: {} } as any);
     }
 
-    const editedContent = nodesToString(ast.children || []);
+    const editedContent = nodesToString(contentNodes);
     const modified = rebuildSfc(descriptor, editedContent);
     return { code: modified, success: true };
   } catch (err) {

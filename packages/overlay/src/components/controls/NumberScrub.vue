@@ -105,30 +105,35 @@ function handleMouseUp() {
   align-items: center;
   background: #f8fafc;
   border: 1px solid #e2e8f0;
-  border-radius: 4px;
+  border-radius: 6px;
   overflow: hidden;
+  transition: all 150ms ease;
 }
 
 .number-scrub:focus-within {
   border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+  background: white;
 }
 
 .number-scrub.dragging {
   border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  background: white;
 }
 
 input {
   flex: 1;
   width: 100%;
   min-width: 0;
-  padding: 6px 8px;
+  padding: 7px 10px;
   border: none;
   background: transparent;
   font-size: 12px;
-  font-family: inherit;
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
   color: #0f172a;
   cursor: ew-resize;
+  text-align: center;
 }
 
 input:focus {
@@ -139,6 +144,7 @@ input:focus {
 .unit {
   padding-right: 8px;
   font-size: 11px;
-  color: #64748b;
+  font-weight: 500;
+  color: #94a3b8;
 }
 </style>
