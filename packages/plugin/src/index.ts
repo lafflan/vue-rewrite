@@ -1,6 +1,8 @@
 import type { Plugin } from 'vite';
 import type { ServerMessage } from '@vue-rewrite/shared';
 import { WebSocketServer, type WebSocket } from 'ws';
+import { join as pathJoin } from 'path';
+import { existsSync, readFileSync } from 'fs';
 import { logger } from './utils/logger.js';
 import { injectOverlayScript } from './transform/inject.js';
 import { tailwindResolver } from './transform/tailwindResolver.js';
@@ -26,6 +28,7 @@ export default function vueRewritePlugin(options: VueRewriteOptions = {}): Plugi
   let projectRoot = process.cwd();
   let wss: WebSocketServer | null = null;
   let currentClient: WebSocket | null = null;
+  let viteServer: { config?: { server?: { port?: number } } } | null = null;
 
   if (verbose) {
     logger.setLogLevel('debug');
@@ -49,6 +52,7 @@ export default function vueRewritePlugin(options: VueRewriteOptions = {}): Plugi
       if (!enabled) return;
 
       projectRoot = (devServer as unknown as { root: string }).root || process.cwd();
+      viteServer = devServer as typeof viteServer;
       const httpServer = devServer.httpServer;
       if (!httpServer) return;
 
@@ -92,7 +96,7 @@ export default function vueRewritePlugin(options: VueRewriteOptions = {}): Plugi
       // Handle upgrade requests
       httpServer.on('upgrade', (request: unknown, socket: unknown, head: unknown) => {
         const req = request as { url?: string };
-        if (req.url === '/vue-rewrite-ws') {
+        if (req.url === '/') {
           wss!.handleUpgrade(request as never, socket as never, head as never, (ws) => {
             wss!.emit('connection', ws, request);
           });
@@ -104,7 +108,34 @@ export default function vueRewritePlugin(options: VueRewriteOptions = {}): Plugi
 
     async transformIndexHtml(html) {
       if (!enabled) return html;
-      return injectOverlayScript(html, wsPort);
+      // Get the actual Vite server port (not the WebSocket port)
+      const serverPort = viteServer?.config?.server?.port || 5173;
+      return injectOverlayScript(html, serverPort);
+    },
+
+    resolveId(id) {
+      if (!enabled) return;
+      if (id === '/__vue-rewrite/overlay.js') {
+        return '\0vue-rewrite-overlay';
+      }
+    },
+
+    async load(id) {
+      if (!enabled) return;
+      if (id === '\0vue-rewrite-overlay') {
+        // 返回 overlay IIFE 的路径
+        const overlayPath = pathJoin(projectRoot, 'node_modules', '@vue-rewrite', 'overlay', 'dist', 'overlay.js');
+        if (existsSync(overlayPath)) {
+          return readFileSync(overlayPath, 'utf-8');
+        }
+        // 开发模式尝试从源码构建目录
+        const srcOverlayPath = pathJoin(__dirname, '..', '..', 'overlay', 'dist', 'overlay.js');
+        if (existsSync(srcOverlayPath)) {
+          return readFileSync(srcOverlayPath, 'utf-8');
+        }
+        logger.error('Overlay bundle not found. Run `pnpm build:overlay` first.');
+        return '';
+      }
     },
 
     transform(code, id) {
