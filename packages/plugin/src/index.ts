@@ -7,6 +7,7 @@ import { logger } from './utils/logger.js';
 import { injectOverlayScript } from './transform/inject.js';
 import { tailwindResolver } from './transform/tailwindResolver.js';
 import { transformSFC } from './transform/sfcParser.js';
+import { processMessage } from './server/messageHandler.js';
 
 const DEFAULT_WS_PORT = 3457;
 
@@ -69,12 +70,21 @@ export default function vueRewritePlugin(options: VueRewriteOptions = {}): Plugi
 
         logger.info('Overlay connected');
 
-        ws.on('message', (data: Buffer) => {
+        ws.on('message', async (data: Buffer) => {
           try {
             const msg = JSON.parse(data.toString());
-            // Handle ping
+            // Handle ping directly
             if (msg.type === 'ping') {
               ws.send(JSON.stringify({ type: 'pong' }));
+              return;
+            }
+            // Process all other messages via messageHandler
+            const response = await processMessage(msg, {
+              projectRoot,
+              broadcast,
+            });
+            if (response) {
+              ws.send(JSON.stringify(response));
             }
           } catch (err) {
             logger.error('Failed to process message:', err);

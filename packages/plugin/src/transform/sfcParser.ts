@@ -356,8 +356,17 @@ export function applySfcEdit(
       applyClassEditToElement(el, edit);
     }
 
-    // 重建 template
-    const editedTemplateContent = nodesToString(el.children || []);
+    // 在父节点中替换修改后的元素，然后序列化完整的模板内容
+    const parentInfo = findParentOf(templateContent, vrId, null);
+    let editedTemplateContent: string;
+    if (parentInfo) {
+      // 替换父节点中的元素
+      parentInfo.parent.children.splice(parentInfo.index, 1, el);
+      editedTemplateContent = nodesToString(templateContent);
+    } else {
+      // 顶级元素：直接序列化整个模板内容
+      editedTemplateContent = nodesToString(templateContent);
+    }
     const modifiedSfc = rebuildSfc(descriptor, editedTemplateContent);
     return { code: modifiedSfc, success: true };
   } catch (err) {
