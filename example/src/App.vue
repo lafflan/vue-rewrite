@@ -1,17 +1,8 @@
 <script setup lang="ts">
-
-
-
-
-
 import Card from './components/Card.vue';
 import Button from './components/Button.vue';
-
-
-
-
-
 </script>
+
 <template>
   <div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8" data-vr-id="vr-mo9w2wso-w">
     <header class="mb-12 text-center" data-vr-id="vr-mo9w2wso-x">
@@ -24,7 +15,7 @@ import Button from './components/Button.vue';
         <div class="flex flex-wrap gap-4" data-vr-id="vr-mo9w2wso-13"><Button variant="primary"
             data-vr-id="vr-mo9w2wso-14">Primary</Button><Button variant="secondary"
             data-vr-id="vr-mo9w2wso-15">Secondary</Button><Button variant="danger"
-            data-vr-id="vr-mo9w2wso-16">Danger</Button></div>
+            data-vr-id="vr-mo9w2wso-16">Danger</Button></div>flex flex-wrap gap-4 gap-6flex flex-wrap
       </section>
       <section class="grid md:grid-cols-2 gap-6" data-vr-id="vr-mo9w2wso-17">
         <Card title="Card Title 1" variant="default" data-vr-id="vr-mo9w2wso-18">

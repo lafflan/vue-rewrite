@@ -320,6 +320,7 @@ type ClassEdit =
 
 /**
  * 对 SFC 的 template 部分应用编辑，返回新的完整 SFC 代码
+ * 使用精确源码替换保持原始格式化
  */
 export function applySfcEdit(
   source: string,
@@ -335,43 +336,150 @@ export function applySfcEdit(
       return { code: source, success: false, error: 'No template in SFC' };
     }
 
-    // 解析 template AST（需要先包装一层）
-    const ast = parseTemplate(`<template>${descriptor.template.content}</template>`);
-    // parseTemplate 返回的 ast.children 是根节点列表，需要跳过包装层
+    // 获取 template 在源码中的起止位置
+    const templateStart = descriptor.template.loc.start.offset;
+    const templateContent = descriptor.template.content;
+
+    // 解析 template AST 找到目标元素
+    // parseTemplateContent 包装在 <template> 中，所以 offset 需要调整
+    const ast = parseTemplateContent(templateContent);
     const wrapperElement = ast.children[0] as ElementNode;
-    const templateContent = (wrapperElement as any).children || ast.children;
-    const el = findElementByVrId(templateContent, vrId);
+    const templateNodes = (wrapperElement as any).children || ast.children;
+    const el = findElementByVrId(templateNodes, vrId);
 
     if (!el) {
       return { code: source, success: false, error: `Element with data-vr-id="${vrId}" not found` };
     }
 
-    // 应用编辑
+    // 调整偏移：parseTemplateContent 包装后 offset 是相对包装字符串的
+    const WRAPPER_LEN = '<template>'.length;
+    const elStartInContent = el.loc.start.offset - WRAPPER_LEN;
+    const elEndInContent = el.loc.end.offset - WRAPPER_LEN;
+
+    // 提取原始元素源码
+    const originalElement = templateContent.substring(elStartInContent, elEndInContent);
+
+    let modifiedElement: string;
+
     if (edit.kind === 'setText') {
-      // 替换元素的文本内容（第一个 text 子节点）
-      el.children = el.children.filter((c) => c.type !== 2 && c.type !== 5 && c.type !== 8);
-      el.children.push({ type: 2, content: edit.text } as any);
+      // 文本编辑：在原始元素的 children 中替换文本内容
+      modifiedElement = replaceTextInElement(originalElement, el, edit.text);
     } else {
-      // class 编辑
-      applyClassEditToElement(el, edit);
+      // class 编辑：在原始元素的 class 属性上做替换
+      modifiedElement = replaceClassInElement(originalElement, el, edit);
     }
 
-    // 在父节点中替换修改后的元素，然后序列化完整的模板内容
-    const parentInfo = findParentOf(templateContent, vrId, null);
-    let editedTemplateContent: string;
-    if (parentInfo) {
-      // 替换父节点中的元素
-      parentInfo.parent.children.splice(parentInfo.index, 1, el);
-      editedTemplateContent = nodesToString(templateContent);
-    } else {
-      // 顶级元素：直接序列化整个模板内容
-      editedTemplateContent = nodesToString(templateContent);
-    }
-    const modifiedSfc = rebuildSfc(descriptor, editedTemplateContent);
-    return { code: modifiedSfc, success: true };
+    // 在原始源码中精确替换该元素
+    const absStart = templateStart + elStartInContent;
+    const absEnd = templateStart + elEndInContent;
+    const modifiedSource = source.substring(0, absStart) + modifiedElement + source.substring(absEnd);
+    return { code: modifiedSource, success: true };
   } catch (err) {
     return { code: source, success: false, error: String(err) };
   }
+}
+
+/**
+ * 在元素的 children 中查找文本节点并替换
+ */
+function replaceTextInElement(
+  originalElement: string,
+  el: ElementNode & { dataVrId?: string },
+  newText: string
+): string {
+  // 找到第一个文本子节点的位置
+  const textNode = el.children?.find(c => c.type === 2);
+  if (!textNode) {
+    // 没有文本节点，在标签后插入
+    const closingBracket = originalElement.indexOf('>');
+    if (closingBracket === -1) return originalElement;
+    return originalElement.substring(0, closingBracket + 1) + newText + originalElement.substring(closingBracket + 1).replace(/^[^<]*/, '');
+  }
+
+  // 文本节点在 children 中的位置
+  const textOffset = (textNode as any).loc?.start?.offset || 0;
+  const textEndOffset = (textNode as any).loc?.end?.offset || 0;
+
+  // 计算在原始元素源码中的绝对偏移
+  const elStartBracket = originalElement.indexOf('>');
+  const contentStart = elStartBracket + 1;
+  const textAbsStart = contentStart + textOffset;
+  const textAbsEnd = contentStart + textEndOffset;
+
+  return originalElement.substring(0, textAbsStart) + newText + originalElement.substring(textAbsEnd);
+}
+
+/**
+ * 替换元素的 class 属性值
+ */
+function replaceClassInElement(
+  originalElement: string,
+  el: ElementNode & { dataVrId?: string },
+  edit: ClassEdit
+): string {
+  // 找到 class attribute 在源码中的位置
+  const classAttr = el.props?.find(
+    (p) => p.type === 6 && (p as AttributeNode).name === 'class'
+  ) as AttributeNode | undefined;
+
+  if (!classAttr || !classAttr.value) {
+    // 没有 class 属性，需要添加
+    if (edit.kind === 'setClass') {
+      // 在 data-vr-id 之后或开始标签结束前插入 class
+      const vrAttr = el.props?.find(p => p.type === 6 && p.name === 'data-vr-id') as AttributeNode | undefined;
+      if (vrAttr && vrAttr.value) {
+        // 在 data-vr-id 之后插入
+        const vrAttrEnd = vrAttr.loc.end.offset;
+        return originalElement.substring(0, vrAttrEnd) + ` class="${edit.className}"` + originalElement.substring(vrAttrEnd);
+      }
+      // 在开始标签的 > 之前插入
+      const gt = originalElement.indexOf('>');
+      return originalElement.substring(0, gt) + ` class="${edit.className}"` + originalElement.substring(gt);
+    }
+    return originalElement;
+  }
+
+  const classValueStart = classAttr.value.loc.start.offset;
+  const classValueEnd = classAttr.value.loc.end.offset;
+
+  // 计算在原始元素源码中的绝对位置
+  const gt = originalElement.indexOf('>');
+  const attrsEnd = gt;
+  const classAbsStart = classValueStart;
+  const classAbsEnd = classValueEnd;
+
+  let newClassValue: string;
+  if (edit.kind === 'setClass') {
+    newClassValue = edit.className;
+  } else {
+    // addClass / removeClass
+    const existing = classAttr.value?.content || '';
+    const classes = existing.split(/\s+/).filter(Boolean);
+    if (edit.kind === 'addClass') {
+      if (!classes.includes(edit.className)) classes.push(edit.className);
+    } else if (edit.kind === 'removeClass') {
+      const idx = classes.indexOf(edit.className);
+      if (idx !== -1) classes.splice(idx, 1);
+    }
+    newClassValue = classes.join(' ');
+  }
+
+  return originalElement.substring(0, classAbsStart) + newClassValue + originalElement.substring(classAbsEnd);
+}
+
+/**
+ * 使用修改后的 template 内容重建 SFC
+ */
+function rebuildSfcWithEditedTemplate(
+  originalSource: string,
+  descriptor: ReturnType<typeof parseSFC>['descriptor'],
+  editedTemplateContent: string,
+  templateStart: number,
+  templateEnd: number
+): string {
+  const beforeTemplate = originalSource.substring(0, templateStart);
+  const afterTemplate = originalSource.substring(templateEnd);
+  return `${beforeTemplate}<template>\n${editedTemplateContent}\n</template>${afterTemplate}`;
 }
 
 function applyClassEditToElement(
@@ -477,7 +585,7 @@ function getTemplateContentNodes(ast: ReturnType<typeof parseTemplate>) {
 }
 
 /**
- * 对 SFC 应用重排序
+ * 对 SFC 应用重排序（使用精确源码替换保持格式）
  */
 export function applySfcReorder(
   source: string,
@@ -490,12 +598,18 @@ export function applySfcReorder(
     if (parseErrors.length > 0) return { code: source, success: false, error: parseErrors[0].message };
     if (!descriptor.template) return { code: source, success: false, error: 'No template' };
 
-    const ast = parseTemplateContent(descriptor.template.content);
-    const contentNodes = getTemplateContentNodes(ast);
-    const found = findParentOf(contentNodes, vrId, ast);
-    if (!found) return { code: source, success: false, error: `Element not found: ${vrId}` };
-    const { parent, index } = found;
-    const children = parent.children || [];
+    const templateContent = descriptor.template.content;
+    const templateStart = descriptor.template.loc.start.offset;
+    const templateEnd = descriptor.template.loc.end.offset;
+
+    // 解析 template AST（包装在 <template> 中）
+    const ast = parseTemplateContent(templateContent);
+    const wrapperElement = ast.children[0] as ElementNode;
+    const contentNodes = (wrapperElement as any).children || ast.children;
+    const el = findElementByVrId(contentNodes, vrId);
+    if (!el) return { code: source, success: false, error: `Element not found: ${vrId}` };
+
+    const children = el.children || [];
     if (fromIndex < 0 || fromIndex >= children.length) {
       return { code: source, success: false, error: `Invalid fromIndex: ${fromIndex}` };
     }
@@ -503,11 +617,23 @@ export function applySfcReorder(
       return { code: source, success: false, error: `Invalid toIndex: ${toIndex}` };
     }
 
+    // 调整偏移：parseTemplateContent 包装后 offset 是相对包装字符串的
+    // 包装字符串是 `<template>${templateContent}</template>`，<template> 是 11 个字符
+    const WRAPPER_LEN = '<template>'.length;
+    const elStartInContent = el.loc.start.offset - WRAPPER_LEN;
+    const elEndInContent = el.loc.end.offset - WRAPPER_LEN;
+
+    // 生成修改后的元素源码
     const [moved] = children.splice(fromIndex, 1);
     children.splice(toIndex, 0, moved);
+    const modifiedElement = nodesToString([el] as any);
 
-    const editedContent = nodesToString(contentNodes);
-    const modified = rebuildSfc(descriptor, editedContent);
+    // 在原始 template content 中精确替换
+    const before = templateContent.substring(0, elStartInContent);
+    const after = templateContent.substring(elEndInContent);
+    const editedTemplateContent = before + modifiedElement + after;
+
+    const modified = rebuildSfcWithEditedTemplate(source, descriptor, editedTemplateContent, templateStart, templateEnd);
     return { code: modified, success: true };
   } catch (err) {
     return { code: source, success: false, error: String(err) };
@@ -515,7 +641,7 @@ export function applySfcReorder(
 }
 
 /**
- * 对 SFC 应用删除元素
+ * 对 SFC 应用删除元素（使用精确源码替换保持格式）
  */
 export function applySfcDelete(
   source: string,
@@ -526,15 +652,32 @@ export function applySfcDelete(
     if (parseErrors.length > 0) return { code: source, success: false, error: parseErrors[0].message };
     if (!descriptor.template) return { code: source, success: false, error: 'No template' };
 
-    const ast = parseTemplateContent(descriptor.template.content);
-    const contentNodes = getTemplateContentNodes(ast);
-    const found = findParentOf(contentNodes, vrId, ast);
-    if (!found) return { code: source, success: false, error: `Element not found: ${vrId}` };
-    const { parent, index } = found;
-    parent.children?.splice(index, 1);
+    const templateContent = descriptor.template.content;
+    const templateStart = descriptor.template.loc.start.offset;
+    const templateEnd = descriptor.template.loc.end.offset;
 
-    const editedContent = nodesToString(contentNodes);
-    const modified = rebuildSfc(descriptor, editedContent);
+    // 解析 template AST（包装在 <template> 中）
+    const ast = parseTemplateContent(templateContent);
+    const wrapperElement = ast.children[0] as ElementNode;
+    const contentNodes = (wrapperElement as any).children || ast.children;
+    const found = findParentOf(contentNodes, vrId, null);
+    if (!found) return { code: source, success: false, error: `Element not found: ${vrId}` };
+
+    const { parent, index } = found;
+    const el = parent.children?.[index] as ElementNode;
+    if (!el || el.type !== 1) return { code: source, success: false, error: 'Not an element' };
+
+    // 调整偏移
+    const WRAPPER_LEN = '<template>'.length;
+    const elStartInContent = el.loc.start.offset - WRAPPER_LEN;
+    const elEndInContent = el.loc.end.offset - WRAPPER_LEN;
+
+    // 从原始 template content 中删除该元素
+    const before = templateContent.substring(0, elStartInContent);
+    const after = templateContent.substring(elEndInContent);
+    const editedTemplateContent = before + after;
+
+    const modified = rebuildSfcWithEditedTemplate(source, descriptor, editedTemplateContent, templateStart, templateEnd);
     return { code: modified, success: true };
   } catch (err) {
     return { code: source, success: false, error: String(err) };
@@ -542,7 +685,7 @@ export function applySfcDelete(
 }
 
 /**
- * 对 SFC 应用复制元素
+ * 对 SFC 应用复制元素（使用精确源码替换保持格式）
  */
 export function applySfcDuplicate(
   source: string,
@@ -554,27 +697,40 @@ export function applySfcDuplicate(
     if (parseErrors.length > 0) return { code: source, success: false, error: parseErrors[0].message };
     if (!descriptor.template) return { code: source, success: false, error: 'No template' };
 
-    const ast = parseTemplateContent(descriptor.template.content);
-    const contentNodes = getTemplateContentNodes(ast);
-    const found = findParentOf(contentNodes, vrId, ast);
+    const templateContent = descriptor.template.content;
+    const templateStart = descriptor.template.loc.start.offset;
+    const templateEnd = descriptor.template.loc.end.offset;
+
+    // 解析 template AST（包装在 <template> 中）
+    const ast = parseTemplateContent(templateContent);
+    const wrapperElement = ast.children[0] as ElementNode;
+    const contentNodes = (wrapperElement as any).children || ast.children;
+    const found = findParentOf(contentNodes, vrId, null);
     if (!found) return { code: source, success: false, error: `Element not found: ${vrId}` };
+
     const { parent, index } = found;
-    const original = parent.children?.[index];
+    const original = parent.children?.[index] as ElementNode;
     if (!original || original.type !== 1) return { code: source, success: false, error: 'Can only duplicate element nodes' };
 
     // 深拷贝并更新 data-vr-id
     const clone = JSON.parse(JSON.stringify(original)) as ElementNode & { dataVrId?: string };
-    // 更新克隆的 data-vr-id
     for (const prop of clone.props || []) {
       if (prop.type === 6 && (prop as AttributeNode).name === 'data-vr-id') {
         (prop as AttributeNode).value = { type: 4, content: newVrId } as any;
       }
     }
 
-    parent.children?.splice(index + 1, 0, clone);
+    // 调整偏移
+    const WRAPPER_LEN = '<template>'.length;
+    const originalElEndInContent = original.loc.end.offset - WRAPPER_LEN;
 
-    const editedContent = nodesToString(contentNodes);
-    const modified = rebuildSfc(descriptor, editedContent);
+    // 生成克隆元素的源码并插入到原元素之后
+    const clonedElementStr = nodesToString([clone] as any);
+    const before = templateContent.substring(0, originalElEndInContent);
+    const after = templateContent.substring(originalElEndInContent);
+    const editedTemplateContent = before + clonedElementStr + after;
+
+    const modified = rebuildSfcWithEditedTemplate(source, descriptor, editedTemplateContent, templateStart, templateEnd);
     return { code: modified, success: true };
   } catch (err) {
     return { code: source, success: false, error: String(err) };
@@ -582,7 +738,7 @@ export function applySfcDuplicate(
 }
 
 /**
- * 对 SFC 设置 :class 绑定
+ * 对 SFC 设置 :class 绑定（使用精确源码替换保持格式）
  */
 export function applySfcClassBinding(
   source: string,
@@ -595,13 +751,16 @@ export function applySfcClassBinding(
     if (parseErrors.length > 0) return { code: source, success: false, error: parseErrors[0].message };
     if (!descriptor.template) return { code: source, success: false, error: 'No template' };
 
-    const ast = parseTemplateContent(descriptor.template.content);
-    const contentNodes = getTemplateContentNodes(ast);
-    const found = findParentOf(contentNodes, vrId, ast);
-    if (!found) return { code: source, success: false, error: `Element not found: ${vrId}` };
+    const templateContent = descriptor.template.content;
+    const templateStart = descriptor.template.loc.start.offset;
+    const templateEnd = descriptor.template.loc.end.offset;
 
-    const el = found.parent.children?.[found.index] as ElementNode & { dataVrId?: string };
-    if (!el || el.type !== 1) return { code: source, success: false, error: 'Not an element' };
+    // 解析 template AST（包装在 <template> 中）
+    const ast = parseTemplateContent(templateContent);
+    const wrapperElement = ast.children[0] as ElementNode;
+    const contentNodes = (wrapperElement as any).children || ast.children;
+    const el = findElementByVrId(contentNodes, vrId);
+    if (!el) return { code: source, success: false, error: `Element not found: ${vrId}` };
 
     // 移除现有关于 class 的 attribute/directive
     el.props = (el.props || []).filter((p) => {
@@ -614,17 +773,27 @@ export function applySfcClassBinding(
     });
 
     if (bindingType === 'static') {
-      // class="value"
       el.props?.push({ type: 6, name: 'class', value: { type: 4, content: value }, loc: {} } as any);
     } else {
-      // :class="value"
       const arg = { type: 4, content: 'class' } as any;
       const exp = { type: 4, content: value } as any;
       el.props?.push({ type: 7, name: 'bind', arg, exp, loc: {} } as any);
     }
 
-    const editedContent = nodesToString(contentNodes);
-    const modified = rebuildSfc(descriptor, editedContent);
+    // 调整偏移
+    const WRAPPER_LEN = '<template>'.length;
+    const elStartInContent = el.loc.start.offset - WRAPPER_LEN;
+    const elEndInContent = el.loc.end.offset - WRAPPER_LEN;
+
+    // 生成修改后的元素源码
+    const modifiedElement = nodesToString([el] as any);
+
+    // 在原始 template content 中精确替换
+    const before = templateContent.substring(0, elStartInContent);
+    const after = templateContent.substring(elEndInContent);
+    const editedTemplateContent = before + modifiedElement + after;
+
+    const modified = rebuildSfcWithEditedTemplate(source, descriptor, editedTemplateContent, templateStart, templateEnd);
     return { code: modified, success: true };
   } catch (err) {
     return { code: source, success: false, error: String(err) };
