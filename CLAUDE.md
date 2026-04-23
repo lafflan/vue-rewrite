@@ -20,9 +20,7 @@ pnpm test           # Run vitest tests (plugin + overlay)
 Browser (Vue3 App)
   └── Shadow DOM (#vue-rewrite-root)
         ├── HighlightCanvas.vue   # Canvas 2D overlay for selection/hover highlights
-        ├── ToolsPanel.vue         # Left toolbar (Select/Text/Move tools)
-        ├── PropertySidebar.vue    # Right panel — class token editor + property groups
-        └── Toolbar.vue            # Bottom bar — connection status, undo/confirm
+        └── PropertySidebar.vue    # Right panel — class token editor + property groups
 
 WebSocket (ws://localhost:3457)
   ↕

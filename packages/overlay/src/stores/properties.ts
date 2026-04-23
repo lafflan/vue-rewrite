@@ -268,6 +268,192 @@ export const usePropertiesStore = defineStore('properties', () => {
     sendProperty('bg', value);
   }
 
+  /** 获取内联 style 属性中的声明 */
+  function getInlineStyles(): Record<string, string> {
+    if (!selectedElement.value) return {};
+    const style = selectedElement.value.getAttribute('style') || '';
+    const result: Record<string, string> = {};
+    style.split(';').forEach((decl) => {
+      const [prop, ...valueParts] = decl.split(':');
+      if (prop && valueParts.length) {
+        result[prop.trim()] = valueParts.join(':').trim();
+      }
+    });
+    return result;
+  }
+
+  /** 获取匹配的所有 CSS 规则（仅来自 src 目录） */
+  function getMatchedCSSRules(): Array<{
+    selector: string;
+    source: string;
+    styles: Record<string, string>;
+    inherited: boolean;
+  }> {
+    if (!selectedElement.value || !computedStyles.value) return [];
+
+    const rules: Array<{
+      selector: string;
+      source: string;
+      styles: Record<string, string>;
+      inherited: boolean;
+    }> = [];
+    const seenSelectors = new Set<string>();
+
+    // 获取所有样式表
+    for (let i = 0; i < document.styleSheets.length; i++) {
+      try {
+        const sheet = document.styleSheets[i];
+        const href = sheet.href || '';
+
+        // 跳过 node_modules 和外部样式表
+        if (href.includes('node_modules') || href.startsWith('http')) continue;
+
+        const cssRules = sheet.cssRules || sheet.rules;
+        if (!cssRules) continue;
+
+        for (const rule of cssRules) {
+          if (rule.type !== CSSRule.STYLE_RULE) continue;
+          const styleRule = rule as CSSStyleRule;
+
+          // 检查此规则是否匹配当前元素
+          try {
+            if (!selectedElement.value.matches(styleRule.selectorText)) continue;
+          } catch {
+            continue;
+          }
+
+          if (seenSelectors.has(styleRule.selectorText)) continue;
+          seenSelectors.add(styleRule.selectorText);
+
+          const styles: Record<string, string> = {};
+          for (const prop of styleRule.style) {
+            const value = styleRule.style.getPropertyValue(prop);
+            if (value) styles[prop] = value;
+          }
+
+          if (Object.keys(styles).length > 0) {
+            rules.push({
+              selector: styleRule.selectorText,
+              source: href || 'inline',
+              styles,
+              inherited: false,
+            });
+          }
+        }
+      } catch {
+        // 跨域样式表可能抛出异常，跳过
+      }
+    }
+
+    // 检查父元素是否也有匹配的样式（继承）
+    let parent = selectedElement.value.parentElement;
+    while (parent) {
+      for (let i = 0; i < document.styleSheets.length; i++) {
+        try {
+          const sheet = document.styleSheets[i];
+          const href = sheet.href || '';
+          if (href.includes('node_modules') || href.startsWith('http')) continue;
+
+          const cssRules = sheet.cssRules || sheet.rules;
+          if (!cssRules) continue;
+
+          for (const rule of cssRules) {
+            if (rule.type !== CSSRule.STYLE_RULE) continue;
+            const styleRule = rule as CSSStyleRule;
+
+            try {
+              if (!parent.matches(styleRule.selectorText)) continue;
+            } catch {
+              continue;
+            }
+
+            const selector = styleRule.selectorText;
+            if (seenSelectors.has(selector + ':inherited')) continue;
+            seenSelectors.add(selector + ':inherited');
+
+            const styles: Record<string, string> = {};
+            for (const prop of styleRule.style) {
+              const value = styleRule.style.getPropertyValue(prop);
+              if (value) styles[prop] = value;
+            }
+
+            if (Object.keys(styles).length > 0) {
+              rules.push({
+                selector,
+                source: href || 'inline',
+                styles,
+                inherited: true,
+              });
+            }
+          }
+        } catch {
+          // 跨域样式表可能抛出异常
+        }
+      }
+      parent = parent.parentElement;
+    }
+
+    return rules;
+  }
+
+  /** 获取带 inherited 标记的 class 列表 */
+  function getClassListWithInherit(): Array<{ name: string; inherited: boolean }> {
+    if (!selectedElement.value) return [];
+
+    const result: Array<{ name: string; inherited: boolean }> = [];
+    const el = selectedElement.value;
+
+    // 获取自有 class
+    for (const cls of el.classList) {
+      result.push({ name: cls, inherited: false });
+    }
+
+    // 检查父元素继承的 class
+    let parent = el.parentElement;
+    while (parent && parent !== document.body) {
+      for (const cls of parent.classList) {
+        if (!result.some((c) => c.name === cls)) {
+          result.push({ name: cls, inherited: true });
+        }
+      }
+      parent = parent.parentElement;
+    }
+
+    return result;
+  }
+
+  /** 更新内联样式属性 */
+  async function updateInlineStyleProperty(property: string, value: string) {
+    if (!selectedElement.value) return;
+
+    const el = selectedElement.value;
+    const currentStyle = el.getAttribute('style') || '';
+
+    // 解析现有样式
+    const styles: Record<string, string> = {};
+    currentStyle.split(';').forEach((decl) => {
+      const [prop, ...valueParts] = decl.split(':');
+      if (prop && valueParts.length) {
+        styles[prop.trim()] = valueParts.join(':').trim();
+      }
+    });
+
+    // 更新或添加属性
+    if (value) {
+      styles[property] = value;
+    } else {
+      delete styles[property];
+    }
+
+    // 重新构建 style 字符串
+    const newStyle = Object.entries(styles)
+      .map(([k, v]) => `${k}: ${v}`)
+      .join('; ');
+
+    el.setAttribute('style', newStyle);
+    sendProperty(`style:${property}`, value);
+  }
+
   return {
     tailwindTokens,
     selectedElement,
@@ -279,12 +465,16 @@ export const usePropertiesStore = defineStore('properties', () => {
     updateTailwindClass,
     updateClassList,
     updateInlineStyle,
+    updateInlineStyleProperty,
     updateDisplay,
     updateFontWeight,
     updateTextAlign,
     updateBorderRadius,
     updateBorderWidth,
     updateBackgroundColor,
+    getInlineStyles,
+    getMatchedCSSRules,
+    getClassListWithInherit,
     TAILWIND_PREFIX_CSS_MAP,
   };
 });

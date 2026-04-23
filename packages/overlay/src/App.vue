@@ -1,24 +1,18 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
 import { useSelectionStore } from './stores/selection';
-import { useCanvasStore } from './stores/canvas';
 import { usePropertiesStore } from './stores/properties';
 import { bridge } from './bridge';
 import { useElementSelection } from './composables/useElementSelection';
 import type { ServerMessage } from '@vue-rewrite/shared';
 
-import Toolbar from './components/Toolbar.vue';
-import ToolsPanel from './components/ToolsPanel.vue';
 import PropertySidebar from './components/PropertySidebar.vue';
-import ChangelogPanel from './components/ChangelogPanel.vue';
 import HighlightCanvas from './components/HighlightCanvas.vue';
 
 const selectionStore = useSelectionStore();
-const canvasStore = useCanvasStore();
 const propertiesStore = usePropertiesStore();
 
 const isConnected = ref(false);
-const showChangelog = ref(false);
 const showKeyboardHelp = ref(false);
 
 // 启用元素选择/hover 系统
@@ -98,20 +92,8 @@ onUnmounted(() => {
     <!-- Highlight Canvas (rendered behind UI) -->
     <HighlightCanvas />
 
-    <!-- Tools Panel (left side) -->
-    <ToolsPanel
-      @toggle-changelog="showChangelog = !showChangelog"
-      @show-help="showKeyboardHelp = !showKeyboardHelp"
-    />
-
     <!-- Property Sidebar (right side) -->
     <PropertySidebar v-if="selectionStore.hasSelection" />
-
-    <!-- Toolbar (bottom) -->
-    <Toolbar :is-connected="isConnected" />
-
-    <!-- Changelog Panel (toggleable) -->
-    <ChangelogPanel v-if="showChangelog" @close="showChangelog = false" />
 
     <!-- Keyboard Help Modal -->
     <div v-if="showKeyboardHelp" class="keyboard-help" @click="showKeyboardHelp = false">
@@ -137,14 +119,6 @@ onUnmounted(() => {
           <div class="shortcut">
             <kbd>Delete</kbd>
             <span>Delete selected</span>
-          </div>
-          <div class="shortcut">
-            <kbd>Space + Drag</kbd>
-            <span>Pan canvas</span>
-          </div>
-          <div class="shortcut">
-            <kbd>Ctrl + Scroll</kbd>
-            <span>Zoom canvas</span>
           </div>
         </div>
         <button class="close-btn" @click="showKeyboardHelp = false">Close</button>

@@ -66,24 +66,6 @@ const globalStyles = `
   }
 
   /* Layout containers - must be fixed position in global styles */
-  .vr-overlay .tools-panel,
-  [id="vue-rewrite-root"] .tools-panel {
-    position: fixed !important;
-    left: 16px !important;
-    top: 50% !important;
-    transform: translateY(-50%) !important;
-    z-index: 999999 !important;
-  }
-
-  .vr-overlay .toolbar,
-  [id="vue-rewrite-root"] .toolbar {
-    position: fixed !important;
-    bottom: 16px !important;
-    left: 50% !important;
-    transform: translateX(-50%) !important;
-    z-index: 999999 !important;
-  }
-
   .vr-overlay .property-sidebar,
   [id="vue-rewrite-root"] .property-sidebar {
     position: fixed !important;
