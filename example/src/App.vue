@@ -15,7 +15,7 @@ import Button from './components/Button.vue';
         <div class="flex flex-wrap gap-4" data-vr-id="vr-mo9w2wso-13"><Button variant="primary"
             data-vr-id="vr-mo9w2wso-14">Primary</Button><Button variant="secondary"
             data-vr-id="vr-mo9w2wso-15">Secondary</Button><Button variant="danger"
-            data-vr-id="vr-mo9w2wso-16">Danger</Button></div>flex flex-wrap gap-4 gap-6flex flex-wrap
+            data-vr-id="vr-mo9w2wso-16">Danger</Button></div>
       </section>
       <section class="grid md:grid-cols-2 gap-6" data-vr-id="vr-mo9w2wso-17">
         <Card title="Card Title 1" variant="default" data-vr-id="vr-mo9w2wso-18">
