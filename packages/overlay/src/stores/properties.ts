@@ -96,6 +96,7 @@ export const usePropertiesStore = defineStore('properties', () => {
   const selectedElement = ref<HTMLElement | null>(null);
   const computedStyles = ref<CSSStyleDeclaration | null>(null);
   const classList = ref<string[]>([]);
+  const inlineStyles = ref<Record<string, string>>({});
 
   // 选中元素变化时刷新 CSS 信息
   watch(
@@ -105,6 +106,7 @@ export const usePropertiesStore = defineStore('properties', () => {
         selectedElement.value = null;
         computedStyles.value = null;
         classList.value = [];
+        inlineStyles.value = {};
         return;
       }
 
@@ -113,6 +115,16 @@ export const usePropertiesStore = defineStore('properties', () => {
         selectedElement.value = el;
         computedStyles.value = window.getComputedStyle(el);
         classList.value = Array.from(el.classList);
+        // 解析内联样式
+        const styleAttr = el.getAttribute('style') || '';
+        const parsed: Record<string, string> = {};
+        styleAttr.split(';').forEach((decl) => {
+          const [prop, ...valueParts] = decl.split(':');
+          if (prop && valueParts.length) {
+            parsed[prop.trim()] = valueParts.join(':').trim();
+          }
+        });
+        inlineStyles.value = parsed;
       }
     }
   );
@@ -422,6 +434,12 @@ export const usePropertiesStore = defineStore('properties', () => {
     return result;
   }
 
+  /** 获取自有 class 列表（不含继承） */
+  function getOwnClasses(): string[] {
+    if (!selectedElement.value) return [];
+    return Array.from(selectedElement.value.classList);
+  }
+
   /** 更新内联样式属性 */
   async function updateInlineStyleProperty(property: string, value: string) {
     if (!selectedElement.value) return;
@@ -451,6 +469,14 @@ export const usePropertiesStore = defineStore('properties', () => {
       .join('; ');
 
     el.setAttribute('style', newStyle);
+    // 更新本地状态以回显
+    if (value) {
+      inlineStyles.value = { ...inlineStyles.value, [property]: value };
+    } else {
+      const updated = { ...inlineStyles.value };
+      delete updated[property];
+      inlineStyles.value = updated;
+    }
     sendProperty(`style:${property}`, value);
   }
 
@@ -459,6 +485,7 @@ export const usePropertiesStore = defineStore('properties', () => {
     selectedElement,
     computedStyles,
     classList,
+    inlineStyles,
     setTailwindTokens,
     getCssValue,
     findClassByPrefix,
@@ -475,6 +502,7 @@ export const usePropertiesStore = defineStore('properties', () => {
     getInlineStyles,
     getMatchedCSSRules,
     getClassListWithInherit,
+    getOwnClasses,
     TAILWIND_PREFIX_CSS_MAP,
   };
 });

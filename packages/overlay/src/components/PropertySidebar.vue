@@ -80,7 +80,8 @@ if (savedWidth) {
   background: #ffffff;
   border-radius: 12px;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 10px 20px -5px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.03);
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   backdrop-filter: blur(8px);
 }
 

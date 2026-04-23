@@ -144,6 +144,10 @@ function handleUpdateProperty(
       edit = { kind: 'removeClass' as const, className: value };
     } else if (property === 'addClass') {
       edit = { kind: 'addClass' as const, className: value };
+    } else if (property.startsWith('style:')) {
+      // style:column-gap → 设置内联样式
+      const cssProperty = property.slice(6); // 去掉 'style:' 前缀
+      edit = { kind: 'setStyle' as const, property: cssProperty, value };
     } else {
       // 其他情况：直接设置 class
       edit = { kind: 'setClass' as const, className: value };

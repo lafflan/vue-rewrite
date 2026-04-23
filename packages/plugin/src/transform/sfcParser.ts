@@ -316,7 +316,83 @@ type ClassEdit =
   | { kind: 'addClass'; className: string }
   | { kind: 'removeClass'; className: string }
   | { kind: 'setClass'; className: string }
-  | { kind: 'setText'; text: string };
+  | { kind: 'setText'; text: string }
+  | { kind: 'setStyle'; property: string; value: string };
+
+/**
+ * 对元素的 style 属性进行设置/更新/删除
+ */
+function replaceStyleInElement(
+  originalElement: string,
+  el: ElementNode & { dataVrId?: string },
+  property: string,
+  value: string,
+  elStartInContent: number,
+  WRAPPER_LEN: number
+): string {
+  // 找到 style attribute（普通的 style="..." 属性）
+  const styleAttr = el.props?.find(
+    (p) => p.type === 6 && (p as AttributeNode).name === 'style'
+  ) as AttributeNode | undefined;
+
+  if (!styleAttr || !styleAttr.value) {
+    // 没有 style 属性，需要添加
+    // 在 data-vr-id 之后或开始标签结束前插入 style
+    const vrAttr = el.props?.find((p) => p.type === 6 && p.name === 'data-vr-id') as AttributeNode | undefined;
+    if (vrAttr && vrAttr.value) {
+      // 计算 vrAttr 在 originalElement 中的相对偏移
+      // vrAttr.loc.end.offset 是相对于整个 template 内容的绝对位置
+      const vrAttrAbsEnd = vrAttr.loc.end.offset - WRAPPER_LEN; // 在 templateContent 中的绝对位置
+      const vrAttrRelEnd = vrAttrAbsEnd - elStartInContent;    // 相对于 originalElement 的位置
+      return (
+        originalElement.substring(0, vrAttrRelEnd) +
+        ` style="${property}: ${value};"` +
+        originalElement.substring(vrAttrRelEnd)
+      );
+    }
+    // 在开始标签的 > 之前插入
+    const gt = originalElement.indexOf('>');
+    return (
+      originalElement.substring(0, gt) +
+      ` style="${property}: ${value};"` +
+      originalElement.substring(gt)
+    );
+  }
+
+  // styleAttr.loc 指向属性名开始，loc.end 指向 '>' 之后
+  // 转换为相对于 originalElement 的偏移
+  const attrAbsStart = styleAttr.loc.start.offset - WRAPPER_LEN - elStartInContent;
+  const attrAbsEnd = styleAttr.loc.end.offset - WRAPPER_LEN - elStartInContent;
+
+  // 解析现有的 style 值
+  const existingContent = styleAttr.value?.content || '';
+  const styleMap: Record<string, string> = {};
+  existingContent.split(';').forEach((decl) => {
+    const idx = decl.indexOf(':');
+    if (idx > 0) {
+      const prop = decl.substring(0, idx).trim();
+      const val = decl.substring(idx + 1).trim();
+      styleMap[prop] = val;
+    }
+  });
+
+  // 更新或删除属性
+  if (value) {
+    styleMap[property] = value;
+  } else {
+    delete styleMap[property];
+  }
+
+  // 重新构建 style 字符串
+  const newStyleValue = Object.entries(styleMap)
+    .map(([k, v]) => `${k}: ${v}`)
+    .join('; ');
+
+  // 构造新的 style 属性完整文本
+  const newAttr = `style="${newStyleValue}"`;
+
+  return originalElement.substring(0, attrAbsStart) + newAttr + originalElement.substring(attrAbsEnd);
+}
 
 /**
  * 对 SFC 的 template 部分应用编辑，返回新的完整 SFC 代码
@@ -364,6 +440,9 @@ export function applySfcEdit(
     if (edit.kind === 'setText') {
       // 文本编辑：在原始元素的 children 中替换文本内容
       modifiedElement = replaceTextInElement(originalElement, el, edit.text);
+    } else if (edit.kind === 'setStyle') {
+      // style 编辑：在原始元素的 style 属性上做替换
+      modifiedElement = replaceStyleInElement(originalElement, el, edit.property, edit.value, elStartInContent, WRAPPER_LEN);
     } else {
       // class 编辑：在原始元素的 class 属性上做替换
       modifiedElement = replaceClassInElement(originalElement, el, edit, elStartInContent, WRAPPER_LEN);

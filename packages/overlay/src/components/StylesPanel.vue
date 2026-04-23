@@ -13,13 +13,15 @@ const sections = ref({
 const newClassInput = ref('');
 const editingProperty = ref<string | null>(null);
 const editingValue = ref('');
+const isAddingProperty = ref(false);
+const newPropertyName = ref('');
 
 function toggleSection(key: keyof typeof sections.value) {
   sections.value[key] = !sections.value[key];
 }
 
-// Inline styles
-const inlineStyles = computed(() => propsStore.getInlineStyles());
+// Inline styles - 使用 store 的 inlineStyles ref 直接响应式更新
+const inlineStyles = computed(() => propsStore.inlineStyles);
 
 function startEditProperty(prop: string, value: string) {
   editingProperty.value = prop;
@@ -38,11 +40,32 @@ function removeInlineProperty(prop: string) {
   propsStore.updateInlineStyleProperty(prop, '');
 }
 
+function addInlineProperty() {
+  isAddingProperty.value = true;
+  newPropertyName.value = '';
+  editingValue.value = '';
+}
+
+function finishAddProperty() {
+  if (newPropertyName.value.trim() && editingValue.value.trim()) {
+    propsStore.updateInlineStyleProperty(newPropertyName.value.trim(), editingValue.value.trim());
+  }
+  isAddingProperty.value = false;
+  newPropertyName.value = '';
+  editingValue.value = '';
+}
+
+function cancelAddProperty() {
+  isAddingProperty.value = false;
+  newPropertyName.value = '';
+  editingValue.value = '';
+}
+
 // CSS Rules
 const cssRules = computed(() => propsStore.getMatchedCSSRules());
 
-// Class list with inherit
-const classListWithInherit = computed(() => propsStore.getClassListWithInherit());
+// Class list (own only, no inherit)
+const ownClasses = computed(() => propsStore.getOwnClasses());
 
 function removeClass(cls: string) {
   const newList = propsStore.classList.filter((c) => c !== cls);
@@ -130,7 +153,36 @@ function formatSource(source: string): string {
           </div>
         </template>
         <div v-else class="empty-message">No inline styles</div>
-        <button class="add-btn">+ Add property</button>
+        <!-- Add new property row -->
+        <div v-if="isAddingProperty" class="add-property-row">
+          <input
+            v-model="newPropertyName"
+            class="prop-input prop-name-input"
+            placeholder="property"
+            @keydown.enter="finishAddProperty"
+            @keydown.escape="cancelAddProperty"
+            autofocus
+          />
+          <span class="prop-colon">:</span>
+          <input
+            v-model="editingValue"
+            class="prop-input"
+            placeholder="value"
+            @keydown.enter="finishAddProperty"
+            @keydown.escape="cancelAddProperty"
+          />
+          <button class="add-confirm-btn" @click="finishAddProperty" title="Confirm">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M20 6L9 17l-5-5"/>
+            </svg>
+          </button>
+          <button class="add-cancel-btn" @click="cancelAddProperty" title="Cancel">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        <button v-else class="add-btn" @click="addInlineProperty">+ Add property</button>
       </div>
     </div>
 
@@ -203,24 +255,22 @@ function formatSource(source: string): string {
           </svg>
           Class list
         </span>
-        <span v-if="classListWithInherit.length > 0" class="section-count">
-          {{ classListWithInherit.length }}
+        <span v-if="ownClasses.length > 0" class="section-count">
+          {{ ownClasses.length }}
         </span>
       </button>
 
       <div v-show="sections.classList" class="section-content">
         <div class="class-tokens">
           <span
-            v-for="cls in classListWithInherit"
-            :key="cls.name"
+            v-for="cls in ownClasses"
+            :key="cls"
             class="class-token"
-            :class="{ inherited: cls.inherited }"
           >
-            {{ cls.name }}
+            {{ cls }}
             <button
-              v-if="!cls.inherited"
               class="remove-class"
-              @click="removeClass(cls.name)"
+              @click="removeClass(cls)"
               title="Remove class"
             >
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -228,7 +278,7 @@ function formatSource(source: string): string {
               </svg>
             </button>
           </span>
-          <span v-if="classListWithInherit.length === 0" class="no-classes">No classes</span>
+          <span v-if="ownClasses.length === 0" class="no-classes">No classes</span>
         </div>
         <div class="class-input-row">
           <input
@@ -246,13 +296,29 @@ function formatSource(source: string): string {
 </template>
 
 <style scoped>
+/* Chrome DevTools Styles Panel Design */
 .styles-panel {
+  --bg-primary: #ffffff;
+  --bg-secondary: #fafbfc;
+  --bg-tertiary: #f8fafc;
+  --border-subtle: #e5e7eb;
+  --border-default: #e2e8f0;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --accent-cyan: #0891b2;
+  --accent-blue: #2563eb;
+  --accent-purple: #7c3aed;
+  --accent-red: #ef4444;
+  --accent-red-bg: #fef2f2;
+
   font-size: 12px;
-  color: #0f172a;
+  color: var(--text-primary);
+  line-height: 1.5;
 }
 
 .section {
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .section-header {
@@ -260,16 +326,16 @@ function formatSource(source: string): string {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 10px 16px;
+  padding: 8px 12px;
   border: none;
   background: transparent;
   cursor: pointer;
   text-align: left;
-  transition: background 150ms ease;
+  transition: background 120ms ease;
 }
 
 .section-header:hover {
-  background: rgba(59, 130, 246, 0.04);
+  background: rgba(59, 130, 246, 0.05);
 }
 
 .section-title {
@@ -278,12 +344,13 @@ function formatSource(source: string): string {
   gap: 6px;
   font-size: 11px;
   font-weight: 600;
-  color: #0f172a;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
 }
 
 .expand-icon {
-  color: #64748b;
-  transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  color: var(--text-muted);
+  transition: transform 150ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .expand-icon.collapsed {
@@ -293,24 +360,24 @@ function formatSource(source: string): string {
 .section-count {
   font-size: 10px;
   font-weight: 500;
-  color: #64748b;
-  background: #f1f5f9;
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
   padding: 2px 6px;
   border-radius: 10px;
 }
 
 .section-content {
-  padding: 4px 16px 16px;
+  padding: 6px 12px 14px;
 }
 
 .style-row {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 0;
-  font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
-  font-size: 11px;
-  line-height: 1.5;
+  gap: 6px;
+  padding: 3px 0;
+  font-size: 11.5px;
+  line-height: 1.6;
+  min-height: 24px;
 }
 
 .style-row:hover .remove-btn {
@@ -318,53 +385,72 @@ function formatSource(source: string): string {
 }
 
 .prop-name {
-  color: #0891b2;
+  color: var(--accent-cyan);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.prop-colon {
+  color: var(--text-muted);
+  flex-shrink: 0;
 }
 
 .prop-value {
-  color: #0f172a;
+  color: var(--text-primary);
   cursor: text;
   flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  padding: 0 2px;
+  border-radius: 2px;
+  transition: background 100ms ease;
 }
 
 .prop-value:hover {
   background: rgba(59, 130, 246, 0.08);
-  border-radius: 2px;
 }
 
 .prop-input {
   flex: 1;
-  min-width: 0;
-  border: 1px solid #3b82f6;
-  border-radius: 2px;
-  padding: 1px 4px;
+  min-width: 60px;
+  border: 1px solid var(--accent-blue);
+  border-radius: 3px;
+  padding: 2px 6px;
   font-family: inherit;
   font-size: inherit;
   outline: none;
   background: white;
+  color: var(--text-primary);
+}
+
+.prop-input:focus {
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
+.prop-name-input {
+  max-width: 80px;
 }
 
 .remove-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2px;
+  padding: 3px;
   border: none;
   background: none;
   cursor: pointer;
-  color: #94a3b8;
+  color: var(--text-muted);
   opacity: 0;
-  transition: opacity 150ms ease;
-  border-radius: 2px;
+  transition: all 100ms ease;
+  border-radius: 3px;
+  flex-shrink: 0;
 }
 
 .remove-btn:hover {
-  color: #ef4444;
-  background: #fee2e2;
+  color: var(--accent-red);
+  background: var(--accent-red-bg);
 }
 
 .add-btn {
@@ -372,26 +458,69 @@ function formatSource(source: string): string {
   align-items: center;
   gap: 4px;
   padding: 4px 8px;
-  margin-top: 8px;
-  border: none;
-  background: none;
-  color: #64748b;
+  margin-top: 6px;
+  border: 1px dashed var(--border-default);
+  background: transparent;
+  color: var(--text-muted);
   font-size: 11px;
   cursor: pointer;
   border-radius: 4px;
-  transition: all 150ms ease;
+  transition: all 120ms ease;
 }
 
 .add-btn:hover {
-  background: #f1f5f9;
-  color: #3b82f6;
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+  background: rgba(37, 99, 235, 0.04);
 }
 
+/* Add property row */
+.add-property-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 4px 0;
+}
+
+.add-confirm-btn,
+.add-cancel-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all 100ms ease;
+  flex-shrink: 0;
+}
+
+.add-confirm-btn {
+  color: #16a34a;
+}
+
+.add-confirm-btn:hover {
+  background: #dcfce7;
+}
+
+.add-cancel-btn {
+  color: var(--text-muted);
+}
+
+.add-cancel-btn:hover {
+  color: var(--accent-red);
+  background: var(--accent-red-bg);
+}
+
+/* CSS Rules */
 .rule-group {
-  margin-bottom: 12px;
-  padding: 8px;
-  background: #f8fafc;
-  border-radius: 6px;
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  border: 1px solid var(--border-subtle);
 }
 
 .rule-group:last-child {
@@ -403,77 +532,71 @@ function formatSource(source: string): string {
   align-items: center;
   gap: 8px;
   margin-bottom: 6px;
-  padding-bottom: 4px;
-  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--border-subtle);
+  flex-wrap: wrap;
 }
 
 .rule-selector {
-  font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
   font-size: 11px;
   font-weight: 600;
-  color: #0f172a;
+  color: var(--accent-blue);
+  background: rgba(37, 99, 235, 0.06);
+  padding: 1px 5px;
+  border-radius: 3px;
 }
 
 .rule-source {
   font-size: 10px;
-  color: #94a3b8;
-  font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+  color: var(--text-muted);
 }
 
 .inherited-badge {
   font-size: 9px;
   font-weight: 500;
-  color: #7c3aed;
-  background: #ede9fe;
+  color: var(--accent-purple);
+  background: #f5f3ff;
   padding: 1px 5px;
-  border-radius: 4px;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
+  border-radius: 3px;
+  border: 1px dashed #c4b5fd;
+  font-style: italic;
 }
 
 .empty-message {
   font-size: 11px;
-  color: #94a3b8;
-  font-style: italic;
+  color: var(--text-muted);
   padding: 8px 0;
 }
 
+/* Class tokens */
 .class-tokens {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
+  gap: 6px;
   margin-bottom: 10px;
-  min-height: 26px;
+  min-height: 28px;
+  padding: 4px 0;
 }
 
 .class-token {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  background: linear-gradient(135deg, #eff6ff, #dbeafe);
-  border: 1px solid #bfdbfe;
-  border-radius: 6px;
-  padding: 3px 8px;
+  gap: 5px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 2px 8px;
   font-size: 11px;
-  font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
-  color: #2563eb;
-  transition: all 150ms ease;
-}
-
-.class-token.inherited {
-  background: transparent;
-  border: 1px dashed #c4b5fd;
-  color: #7c3aed;
+  color: var(--text-secondary);
+  transition: all 120ms ease;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.02);
 }
 
 .class-token:hover {
-  background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
   transform: translateY(-1px);
-}
-
-.class-token.inherited:hover {
-  background: #ede9fe;
-  transform: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .remove-class {
@@ -483,20 +606,20 @@ function formatSource(source: string): string {
   border: none;
   background: none;
   cursor: pointer;
-  color: #93c5fd;
+  color: var(--text-muted);
   line-height: 1;
   flex-shrink: 0;
-  transition: color 150ms ease;
+  transition: color 100ms ease;
 }
 
 .remove-class:hover {
-  color: #ef4444;
+  color: var(--accent-red);
 }
 
 .no-classes {
   font-size: 11px;
-  color: #cbd5e1;
-  font-style: italic;
+  color: var(--text-muted);
+  padding: 4px 0;
 }
 
 .class-input-row {
@@ -506,40 +629,41 @@ function formatSource(source: string): string {
 
 .class-input {
   flex: 1;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  padding: 7px 10px;
-  font-size: 12px;
-  font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 11px;
   outline: none;
-  color: #0f172a;
-  background: white;
-  transition: all 150ms ease;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  transition: all 120ms ease;
 }
 
 .class-input:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+
+.class-input::placeholder {
+  color: var(--text-muted);
 }
 
 .add-class-btn {
-  padding: 7px 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  background: white;
-  font-size: 14px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  background: var(--bg-primary);
+  font-size: 12px;
   font-weight: 500;
-  color: #64748b;
+  color: var(--text-muted);
   cursor: pointer;
   line-height: 1;
-  transition: all 150ms ease;
+  transition: all 120ms ease;
 }
 
 .add-class-btn:hover {
-  background: linear-gradient(135deg, #3b82f6, #2563eb);
-  color: white;
-  border-color: #3b82f6;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+  background: rgba(37, 99, 235, 0.04);
 }
 </style>
