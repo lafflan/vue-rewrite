@@ -366,7 +366,7 @@ export function applySfcEdit(
       modifiedElement = replaceTextInElement(originalElement, el, edit.text);
     } else {
       // class 编辑：在原始元素的 class 属性上做替换
-      modifiedElement = replaceClassInElement(originalElement, el, edit);
+      modifiedElement = replaceClassInElement(originalElement, el, edit, elStartInContent, WRAPPER_LEN);
     }
 
     // 在原始源码中精确替换该元素
@@ -415,7 +415,9 @@ function replaceTextInElement(
 function replaceClassInElement(
   originalElement: string,
   el: ElementNode & { dataVrId?: string },
-  edit: ClassEdit
+  edit: ClassEdit,
+  elStartInContent: number,
+  WRAPPER_LEN: number
 ): string {
   // 找到 class attribute 在源码中的位置
   const classAttr = el.props?.find(
@@ -442,11 +444,12 @@ function replaceClassInElement(
   const classValueStart = classAttr.value.loc.start.offset;
   const classValueEnd = classAttr.value.loc.end.offset;
 
-  // 计算在原始元素源码中的绝对位置
-  const gt = originalElement.indexOf('>');
-  const attrsEnd = gt;
-  const classAbsStart = classValueStart;
-  const classAbsEnd = classValueEnd;
+  // classValueStart/End 是相对于包装字符串 `<template>${templateContent}</template>` 的偏移
+  // 需要转换为相对于 originalElement 的偏移
+  // originalElement 相对于 templateContent 的起始位置是 elStartInContent
+  // 包装偏移是 WRAPPER_LEN
+  const classAbsStart = classValueStart - WRAPPER_LEN - elStartInContent;
+  const classAbsEnd = classValueEnd - WRAPPER_LEN - elStartInContent;
 
   let newClassValue: string;
   if (edit.kind === 'setClass') {
