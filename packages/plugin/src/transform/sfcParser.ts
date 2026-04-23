@@ -441,15 +441,10 @@ function replaceClassInElement(
     return originalElement;
   }
 
-  const classValueStart = classAttr.value.loc.start.offset;
-  const classValueEnd = classAttr.value.loc.end.offset;
-
-  // classValueStart/End 是相对于包装字符串 `<template>${templateContent}</template>` 的偏移
-  // 需要转换为相对于 originalElement 的偏移
-  // originalElement 相对于 templateContent 的起始位置是 elStartInContent
-  // 包装偏移是 WRAPPER_LEN
-  const classAbsStart = classValueStart - WRAPPER_LEN - elStartInContent;
-  const classAbsEnd = classValueEnd - WRAPPER_LEN - elStartInContent;
+  // classAttr.loc.start 指向属性名开始（'class' 的 'c'），loc.end 指向 '>' 之后
+  // 转换为相对于 originalElement 的偏移
+  const attrAbsStart = classAttr.loc.start.offset - WRAPPER_LEN - elStartInContent;
+  const attrAbsEnd = classAttr.loc.end.offset - WRAPPER_LEN - elStartInContent;
 
   let newClassValue: string;
   if (edit.kind === 'setClass') {
@@ -467,7 +462,10 @@ function replaceClassInElement(
     newClassValue = classes.join(' ');
   }
 
-  return originalElement.substring(0, classAbsStart) + newClassValue + originalElement.substring(classAbsEnd);
+  // 构造新的 class 属性完整文本（保留引号）
+  const newAttr = `class="${newClassValue}"`;
+
+  return originalElement.substring(0, attrAbsStart) + newAttr + originalElement.substring(attrAbsEnd);
 }
 
 /**
