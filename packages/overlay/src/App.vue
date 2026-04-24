@@ -60,21 +60,6 @@ function handleKeyDown(e: KeyboardEvent) {
         bridge.send({ type: 'undo', operationId: 'last' });
       }
       break;
-    case 'Delete':
-    case 'Backspace':
-      if (selectionStore.hasSelection && selectionStore.selectedComponent) {
-        e.preventDefault();
-        bridge.send({
-          type: 'deleteElement',
-          path: {
-            componentName: selectionStore.selectedComponent.name,
-            filePath: selectionStore.selectedComponent.filePath,
-            segments: [],
-          },
-        });
-        selectionStore.clear();
-      }
-      break;
   }
 }
 
@@ -116,10 +101,6 @@ onUnmounted(() => {
             <kbd>Cmd/Ctrl + Shift + Z</kbd>
             <span>Redo</span>
           </div>
-          <div class="shortcut">
-            <kbd>Delete</kbd>
-            <span>Delete selected</span>
-          </div>
         </div>
         <button class="close-btn" @click="showKeyboardHelp = false">Close</button>
       </div>
@@ -136,7 +117,7 @@ onUnmounted(() => {
   font-family: Inter, system-ui, sans-serif;
 }
 
-.vr-overlay > * {
+.vr-overlay>* {
   pointer-events: auto;
 }
 

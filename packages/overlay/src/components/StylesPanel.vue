@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, nextTick } from 'vue';
 import { usePropertiesStore } from '../stores/properties';
 
 const propsStore = usePropertiesStore();
@@ -44,6 +44,18 @@ function addInlineProperty() {
   isAddingProperty.value = true;
   newPropertyName.value = '';
   editingValue.value = '';
+  nextTick(() => {
+    const input = document.querySelector('.add-property-row .prop-name-input') as HTMLInputElement;
+    input?.focus();
+  });
+}
+
+function focusValue() {
+  console.log('focusValue');
+  nextTick(() => {
+    const input = document.querySelector('.add-property-row .prop-input:not(.prop-name-input)') as HTMLInputElement;
+    input?.focus();
+  });
 }
 
 function finishAddProperty() {
@@ -55,7 +67,9 @@ function finishAddProperty() {
   editingValue.value = '';
 }
 
-function cancelAddProperty() {
+function cancelAddProperty(e) {
+  e.stopPropagation();
+  e.preventDefault();
   isAddingProperty.value = false;
   newPropertyName.value = '';
   editingValue.value = '';
@@ -101,21 +115,48 @@ function formatSource(source: string): string {
 
 <template>
   <div class="styles-panel">
+    <!-- Class List Section -->
+    <div class="section">
+      <button class="section-header" @click="toggleSection('classList')">
+        <span class="section-title">
+          <svg class="expand-icon" :class="{ collapsed: !sections.classList }" width="10" height="10"
+            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 18l6-6-6-6" />
+          </svg>
+          Class list
+        </span>
+        <span v-if="ownClasses.length > 0" class="section-count">
+          {{ ownClasses.length }}
+        </span>
+      </button>
+
+      <div v-show="sections.classList" class="section-content">
+        <div class="class-tokens">
+          <span v-for="cls in ownClasses" :key="cls" class="class-token">
+            {{ cls }}
+            <button class="remove-class" @click="removeClass(cls)" title="Remove class">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M18 6L6 18M6 6l12 12" />
+              </svg>
+            </button>
+          </span>
+          <span v-if="ownClasses.length === 0" class="no-classes">No classes</span>
+        </div>
+        <div class="class-input-row">
+          <input v-model="newClassInput" class="class-input" placeholder="Add class…" @keydown="handleInputKeydown"
+            @blur="addClassFromInput" />
+          <button class="add-class-btn" @click="addClassFromInput">+</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Inline Styles Section: element.style -->
     <div class="section">
       <button class="section-header" @click="toggleSection('inline')">
         <span class="section-title">
-          <svg
-            class="expand-icon"
-            :class="{ collapsed: !sections.inline }"
-            width="10"
-            height="10"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <path d="M9 18l6-6-6-6"/>
+          <svg class="expand-icon" :class="{ collapsed: !sections.inline }" width="10" height="10" viewBox="0 0 24 24"
+            fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 18l6-6-6-6" />
           </svg>
           element.style
         </span>
@@ -126,28 +167,18 @@ function formatSource(source: string): string {
 
       <div v-show="sections.inline" class="section-content">
         <template v-if="Object.keys(inlineStyles).length > 0">
-          <div
-            v-for="(value, prop) in inlineStyles"
-            :key="prop"
-            class="style-row"
-          >
+          <div v-for="(value, prop) in inlineStyles" :key="prop" class="style-row">
             <span class="prop-name">{{ prop }}:</span>
             <template v-if="editingProperty === prop">
-              <input
-                v-model="editingValue"
-                class="prop-input"
-                @blur="finishEditProperty"
-                @keydown.enter="finishEditProperty"
-                @keydown.escape="editingProperty = null"
-                autofocus
-              />
+              <input v-model="editingValue" class="prop-input" @blur="finishEditProperty"
+                @keydown.enter="finishEditProperty" @keydown.escape="editingProperty = null" autofocus />
             </template>
             <template v-else>
-              <span class="prop-value" @dblclick="startEditProperty(prop, value)">{{ value }}</span>;
+              <span class="prop-value" @dblclick="startEditProperty(prop, value)">{{ value }};</span>
             </template>
             <button class="remove-btn" @click="removeInlineProperty(prop)" title="Remove">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M18 6L6 18M6 6l12 12"/>
+                <path d="M18 6L6 18M6 6l12 12" />
               </svg>
             </button>
           </div>
@@ -155,30 +186,19 @@ function formatSource(source: string): string {
         <div v-else class="empty-message">No inline styles</div>
         <!-- Add new property row -->
         <div v-if="isAddingProperty" class="add-property-row">
-          <input
-            v-model="newPropertyName"
-            class="prop-input prop-name-input"
-            placeholder="property"
-            @keydown.enter="finishAddProperty"
-            @keydown.escape="cancelAddProperty"
-            autofocus
-          />
+          <input v-model="newPropertyName" class="prop-input prop-name-input" placeholder="property"
+            @keydown.enter="focusValue" @keydown.escape="cancelAddProperty" autofocus />
           <span class="prop-colon">:</span>
-          <input
-            v-model="editingValue"
-            class="prop-input"
-            placeholder="value"
-            @keydown.enter="finishAddProperty"
-            @keydown.escape="cancelAddProperty"
-          />
+          <input v-model="editingValue" class="prop-input" placeholder="value" @keydown.enter="finishAddProperty"
+            @keydown.escape="cancelAddProperty" autofocus/>
           <button class="add-confirm-btn" @click="finishAddProperty" title="Confirm">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <path d="M20 6L9 17l-5-5"/>
+              <path d="M20 6L9 17l-5-5" />
             </svg>
           </button>
           <button class="add-cancel-btn" @click="cancelAddProperty" title="Cancel">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <path d="M18 6L6 18M6 6l12 12"/>
+              <path d="M18 6L6 18M6 6l12 12" />
             </svg>
           </button>
         </div>
@@ -190,17 +210,9 @@ function formatSource(source: string): string {
     <div class="section">
       <button class="section-header" @click="toggleSection('rules')">
         <span class="section-title">
-          <svg
-            class="expand-icon"
-            :class="{ collapsed: !sections.rules }"
-            width="10"
-            height="10"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <path d="M9 18l6-6-6-6"/>
+          <svg class="expand-icon" :class="{ collapsed: !sections.rules }" width="10" height="10" viewBox="0 0 24 24"
+            fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 18l6-6-6-6" />
           </svg>
           Matched CSS Rules
         </span>
@@ -211,11 +223,7 @@ function formatSource(source: string): string {
 
       <div v-show="sections.rules" class="section-content">
         <template v-if="cssRules.length > 0">
-          <div
-            v-for="(rule, idx) in cssRules"
-            :key="idx"
-            class="rule-group"
-          >
+          <div v-for="(rule, idx) in cssRules" :key="idx" class="rule-group">
             <div class="rule-header">
               <span class="rule-selector">{{ rule.selector }}</span>
               <span v-if="formatSource(rule.source)" class="rule-source">
@@ -223,73 +231,13 @@ function formatSource(source: string): string {
               </span>
               <span v-if="rule.inherited" class="inherited-badge">inherited</span>
             </div>
-            <div
-              v-for="(value, prop) in rule.styles"
-              :key="prop"
-              class="style-row"
-            >
+            <div v-for="(value, prop) in rule.styles" :key="prop" class="style-row">
               <span class="prop-name">{{ prop }}:</span>
-              <span class="prop-value">{{ value }}</span>;
+              <span class="prop-value">{{ value }};</span>
             </div>
           </div>
         </template>
         <div v-else class="empty-message">No matching CSS rules from src</div>
-      </div>
-    </div>
-
-    <!-- Class List Section -->
-    <div class="section">
-      <button class="section-header" @click="toggleSection('classList')">
-        <span class="section-title">
-          <svg
-            class="expand-icon"
-            :class="{ collapsed: !sections.classList }"
-            width="10"
-            height="10"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <path d="M9 18l6-6-6-6"/>
-          </svg>
-          Class list
-        </span>
-        <span v-if="ownClasses.length > 0" class="section-count">
-          {{ ownClasses.length }}
-        </span>
-      </button>
-
-      <div v-show="sections.classList" class="section-content">
-        <div class="class-tokens">
-          <span
-            v-for="cls in ownClasses"
-            :key="cls"
-            class="class-token"
-          >
-            {{ cls }}
-            <button
-              class="remove-class"
-              @click="removeClass(cls)"
-              title="Remove class"
-            >
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <path d="M18 6L6 18M6 6l12 12"/>
-              </svg>
-            </button>
-          </span>
-          <span v-if="ownClasses.length === 0" class="no-classes">No classes</span>
-        </div>
-        <div class="class-input-row">
-          <input
-            v-model="newClassInput"
-            class="class-input"
-            placeholder="Add class…"
-            @keydown="handleInputKeydown"
-            @blur="addClassFromInput"
-          />
-          <button class="add-class-btn" @click="addClassFromInput">+</button>
-        </div>
       </div>
     </div>
   </div>
@@ -368,6 +316,8 @@ function formatSource(source: string): string {
 
 .section-content {
   padding: 6px 12px 14px;
+  /* max-height: 280px; */
+  overflow-y: auto;
 }
 
 .style-row {
@@ -516,34 +466,57 @@ function formatSource(source: string): string {
 
 /* CSS Rules */
 .rule-group {
-  margin-bottom: 10px;
+  margin-bottom: 0;
   padding: 8px 10px;
   background: var(--bg-tertiary);
-  border-radius: 4px;
-  border: 1px solid var(--border-subtle);
+  border-radius: 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.rule-group::after {
+  content: ' }';
+}
+
+.rule-group:first-child {
+  border-top-left-radius: 4px;
+  border-top-right-radius: 4px;
 }
 
 .rule-group:last-child {
   margin-bottom: 0;
+  border-bottom: none;
+  border-bottom-left-radius: 4px;
+  border-bottom-right-radius: 4px;
 }
 
 .rule-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 6px;
-  padding-bottom: 5px;
-  border-bottom: 1px solid var(--border-subtle);
   flex-wrap: wrap;
 }
 
 .rule-selector {
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
   font-size: 11px;
   font-weight: 600;
   color: var(--accent-blue);
   background: rgba(37, 99, 235, 0.06);
   padding: 1px 5px;
   border-radius: 3px;
+  border: 1px solid rgba(37, 99, 235, 0.15);
+  display: inline-block;
+  margin-bottom: 4px;
+}
+
+.rule-selector::after {
+  content: ' {';
+}
+
+.rule-group .style-row {
+  padding-left: 8px;
+  border-left: 2px solid var(--border-subtle);
+  margin-left: 2px;
 }
 
 .rule-source {

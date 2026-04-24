@@ -74,7 +74,7 @@ if (savedWidth) {
   position: fixed;
   right: 16px;
   top: 16px;
-  bottom: 80px;
+  bottom: 16px;
   display: flex;
   flex-direction: column;
   background: #ffffff;
@@ -83,6 +83,7 @@ if (savedWidth) {
   overflow-y: auto;
   overflow-x: hidden;
   backdrop-filter: blur(8px);
+  padding: 10px 0;
 }
 
 .resize-handle {
@@ -105,7 +106,7 @@ if (savedWidth) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 16px;
+  padding: 0 16px;
   border-bottom: 1px solid #f1f5f9;
   background: linear-gradient(180deg, #fafbfc, #ffffff);
 }

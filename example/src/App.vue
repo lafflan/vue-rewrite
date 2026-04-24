@@ -12,7 +12,7 @@ import Button from './components/Button.vue';
     <main class="max-w-4xl mx-auto space-y-8" data-vr-id="vr-mo9w2wso-10">
       <section class="bg-white rounded-2xl shadow-lg p-8" data-vr-id="vr-mo9w2wso-11">
         <h2 class="text-2xl font-semibold text-gray-800 mb-6" data-vr-id="vr-mo9w2wso-12">Interactive Components</h2>
-        <div class="flex flex-wrap gap-4" data-vr-id="vr-mo9w2wso-13"><Button variant="primary"
+        <div class="flex flex-wrap gap-4" data-vr-id="vr-mo9w2wso-13" style=""><Button variant="primary"
             data-vr-id="vr-mo9w2wso-14">Primary</Button><Button variant="secondary"
             data-vr-id="vr-mo9w2wso-15">Secondary</Button><Button variant="danger"
             data-vr-id="vr-mo9w2wso-16">Danger</Button></div>

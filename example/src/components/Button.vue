@@ -18,5 +18,7 @@ const variantClasses: Record<string, string> = {
 
 </script>
 <template>
-<button :class="[baseClasses, variantClasses[props.variant]]" data-vr-id="vr-mo9tgsti-22"><slot data-vr-id="vr-mo9tgsti-23"></slot></button>
+  <button :class="[baseClasses, variantClasses[props.variant]]" data-vr-id="vr-mo9tgsti-22">
+    <slot data-vr-id="vr-mo9tgsti-23"></slot>
+  </button>
 </template>

@@ -91,10 +91,18 @@ function init() {
   container.id = 'vue-rewrite-root';
   const shadow = container.attachShadow({ mode: 'open' });
 
-  // Inject styles
+  // Inject styles into shadow DOM
   const style = document.createElement('style');
   style.textContent = globalStyles;
   shadow.appendChild(style);
+
+  // Inject overlay CSS into shadow DOM
+  const overlayCssPath = (window as unknown as { __VUE_REWRITE_CSS_CONTENT__?: string }).__VUE_REWRITE_CSS_CONTENT__;
+  if (overlayCssPath) {
+    const overlayStyle = document.createElement('style');
+    overlayStyle.textContent = overlayCssPath;
+    shadow.appendChild(overlayStyle);
+  }
 
   // Mount to DOM
   if (document.readyState === 'loading') {

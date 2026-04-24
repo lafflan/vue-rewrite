@@ -126,25 +126,34 @@ export default function vueRewritePlugin(options: VueRewriteOptions = {}): Plugi
 
     resolveId(id) {
       if (!enabled) return;
-      if (id === '/__vue-rewrite/overlay.js') {
-        return '\0vue-rewrite-overlay';
-      }
+      if (id === '/__vue-rewrite/overlay.js') return '\0vue-rewrite-overlay-js';
+      if (id === '/__vue-rewrite/overlay.css') return '\0vue-rewrite-overlay-css';
     },
 
     async load(id) {
       if (!enabled) return;
-      if (id === '\0vue-rewrite-overlay') {
-        // 返回 overlay IIFE 的路径
+      if (id === '\0vue-rewrite-overlay-js') {
         const overlayPath = pathJoin(projectRoot, 'node_modules', '@vue-rewrite', 'overlay', 'dist', 'overlay.js');
         if (existsSync(overlayPath)) {
           return readFileSync(overlayPath, 'utf-8');
         }
-        // 开发模式尝试从源码构建目录
         const srcOverlayPath = pathJoin(__dirname, '..', '..', 'overlay', 'dist', 'overlay.js');
         if (existsSync(srcOverlayPath)) {
           return readFileSync(srcOverlayPath, 'utf-8');
         }
         logger.error('Overlay bundle not found. Run `pnpm build:overlay` first.');
+        return '';
+      }
+      if (id === '\0vue-rewrite-overlay-css') {
+        const overlayCssPath = pathJoin(projectRoot, 'node_modules', '@vue-rewrite', 'overlay', 'dist', 'overlay.css');
+        if (existsSync(overlayCssPath)) {
+          return readFileSync(overlayCssPath, 'utf-8');
+        }
+        const srcOverlayCssPath = pathJoin(__dirname, '..', '..', 'overlay', 'dist', 'overlay.css');
+        if (existsSync(srcOverlayCssPath)) {
+          return readFileSync(srcOverlayCssPath, 'utf-8');
+        }
+        logger.error('Overlay CSS not found.');
         return '';
       }
     },
