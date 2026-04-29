@@ -16,6 +16,10 @@ const editingValue = ref('');
 const isAddingProperty = ref(false);
 const newPropertyName = ref('');
 
+// 直接引用输入框元素，避免 querySelector
+const propNameInput = ref<HTMLInputElement | null>(null);
+const propValueInput = ref<HTMLInputElement | null>(null);
+
 function toggleSection(key: keyof typeof sections.value) {
   sections.value[key] = !sections.value[key];
 }
@@ -45,16 +49,13 @@ function addInlineProperty() {
   newPropertyName.value = '';
   editingValue.value = '';
   nextTick(() => {
-    const input = document.querySelector('.add-property-row .prop-name-input') as HTMLInputElement;
-    input?.focus();
+    propNameInput.value?.focus();
   });
 }
 
 function focusValue() {
-  console.log('focusValue');
   nextTick(() => {
-    const input = document.querySelector('.add-property-row .prop-input:not(.prop-name-input)') as HTMLInputElement;
-    input?.focus();
+    propValueInput.value?.focus();
   });
 }
 
@@ -186,11 +187,11 @@ function formatSource(source: string): string {
         <div v-else class="empty-message">No inline styles</div>
         <!-- Add new property row -->
         <div v-if="isAddingProperty" class="add-property-row">
-          <input v-model="newPropertyName" class="prop-input prop-name-input" placeholder="property"
-            @keydown.enter="focusValue" @keydown.escape="cancelAddProperty" autofocus />
+          <input ref="propNameInput" v-model="newPropertyName" class="prop-input prop-name-input" placeholder="property"
+            @keydown.enter="focusValue" @keydown.escape="cancelAddProperty" />
           <span class="prop-colon">:</span>
-          <input v-model="editingValue" class="prop-input" placeholder="value" @keydown.enter="finishAddProperty"
-            @keydown.escape="cancelAddProperty" autofocus/>
+          <input ref="propValueInput" v-model="editingValue" class="prop-input" placeholder="value" @keydown.enter="finishAddProperty"
+            @keydown.escape="cancelAddProperty" />
           <button class="add-confirm-btn" @click="finishAddProperty" title="Confirm">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <path d="M20 6L9 17l-5-5" />
